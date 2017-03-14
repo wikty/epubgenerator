@@ -1,3 +1,5 @@
+import json
+
 class BookmetaRaw(object):
 	def __init__(self, metaitem):
 		if 'book' not in metaitem:
@@ -47,7 +49,7 @@ class BookmetaRaw(object):
 		return self.article_dict
 
 	@staticmethod
-	def create_meta_from_jsonfile(self, jsonfile):
+	def create_meta_from_jsonfile(jsonfile):
 		chapters = [] # standalone book has just one chapter
 		articles = {}
 		book = {
