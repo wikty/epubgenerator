@@ -39,9 +39,9 @@ class PageGenerator():
 
     def generate_article(self, article, tpl):
         filename = articleid2filename(article['id'], self.booktype)
-        filename = os.sep.join([self.targetdir, filename])
+        fn = os.sep.join([self.targetdir, filename])
         
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(fn, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
                 'article_id': article['id'],
                 'article_id_prefix': self.article_id_prefix,
@@ -52,11 +52,29 @@ class PageGenerator():
             }))
         return filename
 
+    def generate_article_with_chapter_title(self, article, tpl):
+        filename = articleid2filename(article['id'], self.booktype)
+        fn = os.sep.join([self.targetdir, filename])
+        
+        with open(fn, 'w', encoding='utf-8') as f:
+            f.write(tpl.format({
+                'article_id': article['id'],
+                'article_id_prefix': self.article_id_prefix,
+                'title': article['title'],
+                'chapter_id': article['chapter_id'],
+                'chapter_id_prefix': self.chapter_id_prefix,
+                'chapter_title': article['chapter_title'],
+                'content': article['body'],
+                'maincssfile': self.maincssfile,
+                'contentspage': self.contentspage
+            }))
+        return filename
+
     def generate_chapter(self, chapter, tpl):
         filename = chapterid2filename(chapter['id'], self.booktype)
-        filename = os.sep.join([self.targetdir, filename])
+        fn = os.sep.join([self.targetdir, filename])
 
-        with open(filename, 'w', encoding='utf-8') as f:
+        with open(fn, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
                 'chapter_id': chapter['id'],
                 'chapter_id_prefix': self.chapter_id_prefix,
@@ -95,33 +113,38 @@ class PageGenerator():
             f.write(tpl.format(fields))
         return filename
 
-    def generate_navpage(self, articles, chapters, tpl):
+    def generate_navpage(self, contents, tpl):
+    # def generate_navpage(self, articles, chapters, tpl):
         filename = os.sep.join([self.targetdir, self.navpage])
         
         with open(filename, 'w', encoding='utf-8') as f:
-            if chapters:
-                l = []
-                for chapid, chaptitle, chap_articles in chapters:
-                    chapfile = chapterid2filename(chapid, self.booktype)
-                    li = self.get_navpage_li(chapfile, chaptitle)
-                    l.append(li)
-                    for article_id in chap_articles:
-                        found = False
-                        artfile = articleid2filename(article_id, self.booktype)
-                        for artid, arttitle in articles:
-                            if artid == article_id:
-                                found = True
-                                break
-                        if not found:
-                            arttitle = 'None'
-                        li = self.get_navpage_li(artfile, arttitle)
-                        l.append(li)
-            else:
-                l = []
-                for artid, arttitle in articles:
-                    artfile = articleid2filename(artid, self.booktype)
-                    li = self.get_navpage_li(artfile, arttitle)
-                    l.append(li)
+            l = []
+            for item_id, title, filename, is_chapter in contents:
+                li = self.get_navpage_li(filename, title)
+                l.append(li)
+            # if chapters:
+            #     l = []
+            #     for chapid, chaptitle, chap_articles in chapters:
+            #         chapfile = chapterid2filename(chapid, self.booktype)
+            #         li = self.get_navpage_li(chapfile, chaptitle)
+            #         l.append(li)
+            #         for article_id in chap_articles:
+            #             found = False
+            #             artfile = articleid2filename(article_id, self.booktype)
+            #             for artid, arttitle in articles:
+            #                 if artid == article_id:
+            #                     found = True
+            #                     break
+            #             if not found:
+            #                 arttitle = 'None'
+            #             li = self.get_navpage_li(artfile, arttitle)
+            #             l.append(li)
+            # else:
+            #     l = []
+            #     for artid, arttitle in articles:
+            #         artfile = articleid2filename(artid, self.booktype)
+            #         li = self.get_navpage_li(artfile, arttitle)
+            #         l.append(li)
             content = '\n'.join(l)
             f.write(tpl.format({
                 'maincssfile': self.maincssfile,
@@ -136,33 +159,41 @@ class PageGenerator():
             }))
         return filename
 
-    def generate_contentspage(self, articles, chapters, tpl):
+    def generate_contentspage(self, contents, tpl):
+    # def generate_contentspage(self, articles, chapters, tpl):
         filename = os.sep.join([self.targetdir, self.contentspage])
         
         with open(filename, 'w', encoding='utf-8') as f:
-            if chapters:
-                l = []
-                for chapid, chaptitle, chap_articles in chapters:
-                    chapfile = chapterid2filename(chapid, self.booktype)
-                    p = self.get_contentspage_p(1, chapfile, self.chapter_id_prefix, chapid, chaptitle)
-                    l.append(p)
-                    for article_id in chap_articles:
-                        artfile = articleid2filename(article_id, self.booktype)
-                        found = False
-                        for artid, arttitle in articles:
-                            if artid == article_id:
-                                found = True        
-                                break
-                        if not found:
-                            arttitle = 'None'
-                        p = self.get_contentspage_p(2, artfile, self.article_id_prefix, article_id, arttitle)
-                        l.append(p)
-            else:
-                l = []
-                for artid, arttitle in articles:
-                    artfile = articleid2filename(artid, self.booktype)
-                    p = self.get_contentspage_p(1, artfile, self.article_id_prefix, artid, arttitle)
-                    l.append(p)
+            l = []
+            for item_id, title, filename, is_chapter in contents:
+                if is_chapter:
+                    p = self.get_contentspage_p(1, filename, self.chapter_id_prefix, item_id, title)
+                else:
+                    p = self.get_contentspage_p(2, filename, self.article_id_prefix, item_id, title)
+                l.append(p)
+            # if chapters:
+            #     l = []
+            #     for chapid, chaptitle, chap_articles in chapters:
+            #         chapfile = chapterid2filename(chapid, self.booktype)
+            #         p = self.get_contentspage_p(1, chapfile, self.chapter_id_prefix, chapid, chaptitle)
+            #         l.append(p)
+            #         for article_id in chap_articles:
+            #             artfile = articleid2filename(article_id, self.booktype)
+            #             found = False
+            #             for artid, arttitle in articles:
+            #                 if artid == article_id:
+            #                     found = True        
+            #                     break
+            #             if not found:
+            #                 arttitle = 'None'
+            #             p = self.get_contentspage_p(2, artfile, self.article_id_prefix, article_id, arttitle)
+            #             l.append(p)
+            # else:
+            #     l = []
+            #     for artid, arttitle in articles:
+            #         artfile = articleid2filename(artid, self.booktype)
+            #         p = self.get_contentspage_p(1, artfile, self.article_id_prefix, artid, arttitle)
+            #         l.append(p)
             content = '\n'.join(l)
             f.write(tpl.format({
                 'maincssfile': self.maincssfile,

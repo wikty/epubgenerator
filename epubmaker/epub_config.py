@@ -45,7 +45,7 @@ class EpubConfig(object):
 		'container': 'container.xml'
 	}
 
-	def __init__(self, bookname, bookcname, booktype, targetdir, sourcedir, templatedir, jsonfile, metafile):		
+	def __init__(self, bookname, bookcname, booktype, targetdir, sourcedir, templatedir, jsonfile, metafile, chapteralone):		
 		# check directories and files
 		targetdir = targetdir.rstrip('/')
 		sourcedir = sourcedir.rstrip('/')
@@ -58,6 +58,9 @@ class EpubConfig(object):
 			raise Exception('epub template directory not existed: %s' % templatedir)
 		if not os.path.exists(jsonfile):
 			raise Exception('epub json data not existed: %s' % jsonfile)
+
+		# whether chapter has a single page for introduction itself
+		self.has_chapter_page = chapteralone
 
 		self.targetdir = targetdir
 		self.sourcedir = sourcedir
@@ -87,7 +90,7 @@ class EpubConfig(object):
 			# meta information generate from data json file
 			meta = BookmetaRaw.create_meta_from_jsonfile(self.jsonfile)
 		if not meta:
-			raise Exception('there is some wrong')
+			raise Exception('there is some wrong with %s' % self.metafile)
 		
 		self.standalone = meta.get_standalone()
 		self.chapter_dict = meta.get_chapter_dict()
@@ -148,6 +151,9 @@ class EpubConfig(object):
 				self.target_epub_files[k] = os.sep.join([self.target_epub_dirs['root'], v])
 			else:
 				raise Exception('unknow target epub file type')
+
+	def get_has_chapter_page(self):
+		return self.has_chapter_page
 
 	def get_bookname(self):
 		return self.bookname

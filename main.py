@@ -95,7 +95,8 @@ def generate_epub(rootdir):
 				'sourcedir': epub_source_directory,
 				'templatedir': epub_template_directory,
 				'jsonfile': epub_data_jsonfile,
-				'metafile': epub_data_metafile
+				'metafile': epub_data_metafile,
+				'chapteralone': True,
 			}).run()
 			
 			# archive epub
@@ -132,17 +133,17 @@ def generate_epub(rootdir):
 					'message': validation.decode('utf-8')
 				})
 
-			# generate .doc
-			wordname = '%s.docx' % en_name
-			print('[EBook Maker]', wordname, 'generating...')
-			os.system('pandoc %s -o %s' % (epubname, wordname))
+				# generate .doc
+				wordname = '%s.docx' % en_name
+				print('[EBook Maker]', wordname, 'generating...')
+				os.system('pandoc %s -o %s' % (epubname, wordname))
 
-			# move to product directory
-			print('[EBook Maker]', en_name, 'moving...')
-			product_epubname = os.sep.join([book_target_directory, '%s.epub' % ch_name])
-			product_wordname = os.sep.join([book_target_directory, '%s.docx' % ch_name])
-			shutil.move(epubname, product_epubname)
-			shutil.move(wordname, product_wordname)
+				# move to product directory
+				print('[EBook Maker]', en_name, 'moving...')
+				product_epubname = os.sep.join([book_target_directory, '%s.epub' % ch_name])
+				product_wordname = os.sep.join([book_target_directory, '%s.docx' % ch_name])
+				shutil.move(epubname, product_epubname)
+				shutil.move(wordname, product_wordname)
 
 	# generate report
 	print('[EBook Maker]', 'generate report.json')

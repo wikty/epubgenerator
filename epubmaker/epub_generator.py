@@ -65,11 +65,23 @@ class EpubGenerator:
 
         # standalone means that the book don't have chapters
         self.standalone = config.is_standalone_book()
-        self.chapter_id_list = [] if self.standalone else config.get_chapter_id_list()
+        self.chapter_id_list = config.get_chapter_id_list()
+
+        # whether has chapter page for intrduce itself
+        self.has_chapter_page = config.get_has_chapter_page()
 
         # generated articles will be combined into epub file
-        self.articles = []
-        self.chapters = []
+        # self.articles = []
+        # self.chapters = []
+
+        # # generated articles and chapters base filename: {id: filename}
+        # self.article_achor = {}
+        # self.chapter_achor = {}
+        self.contents = {
+            'standalone': True,
+            'chapters': { }, # id: {id, title, filename, articles: []}
+            'articles': { } # id : {id, title, filename}
+        }
         
         # template directory
         self.templatedir = config.get_epub_templatedir()
@@ -113,41 +125,124 @@ class EpubGenerator:
         self.generate_package()
 
     def generate_epub(self):
-        self.generate_articles()
-        self.generate_chapters()
+        self.generate_chapters_articles()
         self.generate_coverpage()
         self.generate_frontpage()
         self.generate_contentspage()
         self.generate_navpage()
 
     def generate_package(self):
-        self.packager.generate_opf(self.articles, self.chapters, self.tplmanager.get_template('opf'))
-        self.packager.generate_ncx(self.articles, self.chapters, self.tplmanager.get_template('ncx'))
+        # self.packager.generate_opf(self.articles, self.chapters, self.tplmanager.get_template('opf'))
+        # self.packager.generate_ncx(self.articles, self.chapters, self.tplmanager.get_template('ncx'))
+        t = (not self.standalone) and self.has_chapter_page
+        self.packager.generate_opf(self.contents, t, self.tplmanager.get_template('opf'))
+        self.packager.generate_ncx(self.contents, t, self.tplmanager.get_template('ncx'))
 
-    def generate_articles(self):
+    def resolve_contents(self):
+        '''
+            return [[id, title, filename, is_chapter], ...]
+        '''
+        l = []
+        for chapter_id in sorted(self.contents['chapters'].keys()):
+            chapter = self.contents['chapters'][chapter_id]
+            if not self.contents['standalone']:
+                l.append([chapter_id, chapter['title'], chapter['filename'], True])
+            for article_id in chapter['articles']:
+                article = self.contents['articles'][article_id]
+                l.append([article_id, article['title'], article['filename'], False])
+        return l
+
+    def generate_chapters_articles(self):
+        article_data = {}
         with open(self.jsonfile, 'r', encoding='utf-8') as f:
             for line in f:
                 article = ArticleRaw(json.loads(line))
-                self.generator.generate_article({
-                    'id': article.get_id(),
-                    'title': article.get_title(),
-                    'body': article.get_body()
-                }, self.tplmanager.get_template('article'))
-                self.articles.append([article.get_id(), article.get_title()])
-        self.articles = sorted(self.articles, key=lambda article: article[0])
-
-    def generate_chapters(self):
-        if self.standalone:
-            return
+                article_data[article.get_id()] = article
+                # self.articles.append([article.get_id(), article.get_title()])
+        # self.articles = sorted(self.articles, key=lambda article: article[0])
         
-        for chapterid in self.chapter_id_list:
-            chapter = ChapterRaw(self.config.get_chapter(chapterid))
-            self.generator.generate_chapter({
-                'id': chapter.get_id(),
-                'title': chapter.get_title()
-            }, self.tplmanager.get_template('chapter'))
-            self.chapters.append([chapter.get_id(), chapter.get_title(), chapter.get_articles()])
-        self.chapters = sorted(self.chapters, key=lambda chapter: chapter[0])
+        if self.standalone:
+            # book has no chapter
+            self.contents['standalone'] = True
+            self.contents['chapters'][1] = {
+                'id': 1,
+                'title': '',
+                'filename': '',
+                'articles': []
+            }
+            for article_id in article_data.keys():
+                article = article_data[article_id]
+                article_title = article.get_title()
+                article_body = article.get_body()
+                filename = self.generator.generate_article({
+                    'id': article_id,
+                    'title': article_title,
+                    'body': article_body
+                }, self.tplmanager.get_template('article'))
+                self.contents['chapters'][1]['articles'].append(article_id)
+                self.contents['articles'][article_id] = {
+                    'id': article_id,
+                    'title': article_title,
+                    'filename': filename
+                }
+            self.contents['chapters'][1]['articles'] = sorted(self.contents['chapters'][1]['articles'])
+                # self.articles[article_id] = {
+                #     'id': article_id,
+                #     'title': article_title,
+                #     'filename': filename
+                # }
+                # self.article_achor[article_id] = achor
+        else:
+            # book has several chapters
+            self.contents['standalone'] = False
+            for chapter_id in self.chapter_id_list:
+                chapter = ChapterRaw(self.config.get_chapter(chapter_id))
+                chapter_title = chapter.get_title()
+                chapter_articles = sorted(chapter.get_articles())
+                self.contents['chapters'][chapter_id] = {
+                    'id': chapter_id,
+                    'title': chapter_title,
+                    'articles': chapter_articles,
+                    'filename': ''
+                }
+                # self.chapters.append([chapter.get_id(), chapter.get_title(), chapter.get_articles()])
+                if self.has_chapter_page:
+                    filename = self.generator.generate_chapter({
+                        'id': chapter_id,
+                        'title': chapter_title
+                    }, self.tplmanager.get_template('chapter'))
+                    self.contents['chapters'][chapter_id]['filename'] = filename
+                    # self.chapter_achor[chapter_id] = achor
+                
+                for article_id in chapter_articles:
+                    article = article_data[article_id]
+                    article_title = article.get_title()
+                    article_body = article.get_body()
+                    if not self.has_chapter_page and article_id == chapter_articles[0]:
+                        filename = self.generator.generate_article_with_chapter_title({
+                            'id': article_id,
+                            'title': article_title,
+                            'chapter_id': chapter_id,
+                            'chapter_title': chapter_title,
+                            'body': article_body
+                        }, self.tplmanager.get_template('article_with_chapter_title'))
+                        self.contents['chapters'][chapter_id]['filename'] = filename
+                        # self.article_achor[article_id] = achor
+                        # self.chapter_achor[chapter_id] = achor
+                    else:
+                        filename = self.generator.generate_article({
+                            'id': article_id,
+                            'title': article.get_title(),
+                            'body': article.get_body()
+                        }, self.tplmanager.get_template('article'))
+                    self.contents['articles'][article_id] = {
+                        'id': article_id,
+                        'title': article_title,
+                        'filename': filename
+                    }
+                        # self.article_achor[article_id] = achor
+            # self.chapters = sorted(self.chapters, key=lambda chapter: chapter[0]) 
+        self.contents = self.resolve_contents()
     
     def generate_coverpage(self):
         self.generator.generate_coverpage(self.tplmanager.get_template('cover'))
@@ -170,15 +265,23 @@ class EpubGenerator:
         }, tpl)
 
     def generate_navpage(self):
+        # self.generator.generate_navpage(
+        #     self.articles, 
+        #     self.chapters, 
+        #     self.tplmanager.get_template('nav')
+        # )
         self.generator.generate_navpage(
-            self.articles, 
-            self.chapters, 
+            self.contents,
             self.tplmanager.get_template('nav')
         )
 
     def generate_contentspage(self):
+        # self.generator.generate_contentspage(
+        #     self.articles, 
+        #     self.chapters, 
+        #     self.tplmanager.get_template('contents')
+        # )
         self.generator.generate_contentspage(
-            self.articles, 
-            self.chapters, 
+            self.contents,
             self.tplmanager.get_template('contents')
         )

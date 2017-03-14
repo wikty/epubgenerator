@@ -1,6 +1,20 @@
 import os, json, shutil
 from optparse import OptionParser
 
+class BadFileException(Exception):
+	def __init__(self, *args, **kwargs):
+		super(BadFileException, self).__init__(*args, **kwargs)
+
+def get_message_code(name):
+	codetbl = {
+		'lost-content': 1,
+		'lost-articles-id': 2,
+		'lost-article': 3
+	}
+	if name and codetbl.get(name, None):
+		return codetbl[name]
+	return codetbl
+
 def is_ok(data_file, meta_file):
 	if not os.path.exists(data_file):
 		raise Exception('data file[%s] not exists' % data_file)
@@ -36,6 +50,7 @@ def is_ok(data_file, meta_file):
 		bookname = book.get('ch_name', None)
 		en_bookname = book.get('en_name', None)
 		booktype = book.get('type', None)
+		bookurl = book.get('url', None)
 		if ok and not bookname:
 			ok = False
 			message = 'meta file[%s] book field should have ch_name'
@@ -45,14 +60,18 @@ def is_ok(data_file, meta_file):
 		if ok and not booktype:
 			ok = False
 			message = 'meta file[%s] book field should have type'
+		if ok and not bookurl:
+			ok = False
+			message = 'meta file[%s] book field should have url'
 	
 	if not ok:
-		raise Exception(message % meta_file)
+		raise BadFileException(message % meta_file)
 	
 	bookinfo = {
 		'ch_name': bookname,
 		'en_name': en_bookname,
-		'type': booktype
+		'type': booktype,
+		'url': bookurl
 	}
 	
 	# check data file
@@ -80,7 +99,7 @@ def is_ok(data_file, meta_file):
 		for line, lnum in zip(lines, range(len(lines))):
 			item = json.loads(line)
 			if not item.get('article_id', None):
-				raise Exception('data file %s the %d line lost article_id' % (data_file, lnum+1))
+				raise BadException('data file %s the %d line lost article_id' % (data_file, lnum+1))
 			article_id = int(item['article_id'])
 			data_all_article_id_list.append(article_id)
 			if item.get('content', None):
@@ -107,18 +126,18 @@ def is_ok(data_file, meta_file):
 			pass
 		else:
 			ok = False
-			message = ''
+			message = 0
 			if article_id in data_all_article_id_set:
 				# article has no content field
-				message = '[Data][Article][%d] has no [content] field'
+				message = get_message_code('lost-content')
 			elif article_id in meta_lost_article_id_set:
 				# article lost in meta file's articles field
-				message = '[Meta][Article][%d] not in field [articles]'
+				message = get_message_code('lost-articles-id')
 			else:
 				# article not in data file
-				message = '[Data][Article][%d] not in data file'
+				message = get_message_code('lost-article')
 			articlesinfo[article_id] = {
-				'message': message % article_id,
+				'message': message,
 				'url': url,
 				'title': title
 			}
@@ -153,16 +172,21 @@ def check(datadir):
 	os.mkdir(colddir)
 	os.mkdir(wetdir)
 
-	book_list_file = '_books.jl'
+	books_file = '_books.jl'
 	report_file = '_report.jl'
-	bfname = os.sep.join([hotdir, book_list_file])
+	booklist_file = '_booklist.jl'
+	bfname = os.sep.join([hotdir, books_file])
 	rfname = os.sep.join([colddir, report_file])
+	lfname = os.sep.join([colddir, booklist_file])
 
 	meta_file_suffix = '_meta.json'
 	data_file_suffix = '.jl'
 	total_count = 0
 	ok_count = 0
-	with open(bfname, 'w', encoding='utf8') as bf, open(rfname, 'w', encoding='utf8') as rf:
+	with open(bfname, 'w', encoding='utf8') as bf, open(rfname, 'w', encoding='utf8') as rf, open(lfname, 'w', encoding='utf8') as lf:
+		# rf.write(json.dumps({
+		# 	'messagecode': get_message_code()
+		# }, ensure_ascii=False, indent=4)+'\n')
 		for fname in os.listdir(datadir):
 			fnamefull = os.sep.join([datadir, fname])
 			if os.path.isfile(fnamefull):
@@ -176,8 +200,14 @@ def check(datadir):
 					# lost meta file
 					shutil.copy(data_file, wetdir)
 					continue
-				
-				[ok, bookinfo, articles] = is_ok(data_file, meta_file)
+				try:
+					[ok, bookinfo, articles] = is_ok(data_file, meta_file)
+				except BadFileException as e:
+					print(e)
+					# meta file has errors
+					shutil.copy(data_file, wetdir)
+					shutil.copy(meta_file, wetdir)
+					continue
 
 				if ok:
 					ok_count += 1
@@ -193,11 +223,19 @@ def check(datadir):
 					shutil.copy(data_file, colddir)
 					shutil.copy(meta_file, colddir)
 					rf.write(json.dumps({
+						'url': bookinfo['url'],
 						'ch_name': bookinfo['ch_name'],
 						'en_name': bookinfo['en_name'],
 						'articles': articles
 					}, ensure_ascii=False, indent=4))
 					rf.write('\n')
+					lf.write(json.dumps({
+						'url': bookinfo['url'],
+						'name': bookinfo['ch_name'],
+						'category_url': '',
+						'category_name': ''
+					}, ensure_ascii=False))
+					lf.write('\n')
 
 	return [total_count, ok_count]
 

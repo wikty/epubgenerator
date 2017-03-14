@@ -69,7 +69,8 @@ class PackageGenerator():
       <content src="{filename}" />
     </navPoint>""".format(id=id, title=title, playorder=playorder, filename=filename)
 
-    def generate_opf(self, articles, chapters, tpl):
+    def generate_opf(self, contents, t, tpl):
+    # def generate_opf(self, articles, chapters, tpl):
         filename  = os.sep.join([self.targetdir, self.packagefile])
         
         with open(filename, 'w', encoding='utf-8') as f:
@@ -95,18 +96,23 @@ class PackageGenerator():
             items.append(self.get_item_xhtml(filename=self.contentspage, id=contentspage_id))
             itemrefs.append(self.get_itemref(id=contentspage_id))
 
-            for article_id, article_title in articles:
-                article_id = articleid2filename(article_id, self.booktype)
-                article_filename = self.xhtmldir+article_id
-                items.append(self.get_item_xhtml(filename=article_filename, id=article_id))
-                itemrefs.append(self.get_itemref(id=article_id))
+            for item_id, title, filename, is_chapter in contents:
+                if (not is_chapter) or (is_chapter and t):
+                    items.append(self.get_item_xhtml(filename=self.xhtmldir+filename, id=filename))
+                    itemrefs.append(self.get_itemref(id=filename))
+
+            # for article_id, article_title in articles:
+            #     article_id = articleid2filename(article_id, self.booktype)
+            #     article_filename = self.xhtmldir+article_id
+            #     items.append(self.get_item_xhtml(filename=article_filename, id=article_id))
+            #     itemrefs.append(self.get_itemref(id=article_id))
             
-            if chapters:
-                for chapter_id, chapter_title, chapter_articles in chapters:
-                    chapter_id = chapterid2filename(chapter_id, self.booktype)
-                    chapter_filename = self.xhtmldir+chapter_id
-                    items.append(self.get_item_xhtml(filename=chapter_filename, id=chapter_id))
-                    itemrefs.append(self.get_itemref(id=chapter_id))
+            # if chapters:
+            #     for chapter_id, chapter_title, chapter_articles in chapters:
+            #         chapter_id = chapterid2filename(chapter_id, self.booktype)
+            #         chapter_filename = self.xhtmldir+chapter_id
+            #         items.append(self.get_item_xhtml(filename=chapter_filename, id=chapter_id))
+            #         itemrefs.append(self.get_itemref(id=chapter_id))
 
             fields = {
                 'bookid': self.bookid,
@@ -121,35 +127,41 @@ class PackageGenerator():
             f.write(tpl.format(fields))
         return filename
 
-    def generate_ncx(self, articles, chapters, tpl):
+    def generate_ncx(self, contents, t, tpl):
+    # def generate_ncx(self, articles, chapters, tpl):
         filename  = os.sep.join([self.targetdir, self.ncxfile])
         
         with open(filename, 'w', encoding='utf-8') as f:
             navpoints = []
             count = 1
-            if chapters:
-                for chapter_id, chapter_title, chapter_articles in chapters:
-                    chapter_filename = chapterid2filename(chapter_id, self.booktype)
-                    chapter_filename = self.xhtmldir+chapter_filename
-                    np = self.get_navpoint(count, chapter_title, chapter_filename)
+            for item_id, title, filename, is_chapter in contents:
+                if (not is_chapter) or (is_chapter and t):
+                    np = self.get_navpoint(count, title, self.xhtmldir+filename)
                     navpoints.append(np)
                     count += 1
+            # if chapters:
+            #     for chapter_id, chapter_title, chapter_articles in chapters:
+            #         chapter_filename = chapterid2filename(chapter_id, self.booktype)
+            #         chapter_filename = self.xhtmldir+chapter_filename
+            #         np = self.get_navpoint(count, chapter_title, chapter_filename)
+            #         navpoints.append(np)
+            #         count += 1
 
-                    for article_id in chapter_articles:
-                        for artid, arttitle in articles:
-                            if artid == article_id:
-                                article_filename = articleid2filename(artid, self.booktype)
-                                article_filename = self.xhtmldir+article_filename
-                                np = self.get_navpoint(count, arttitle, article_filename)
-                                navpoints.append(np)
-                                count += 1
-            else:
-                for article_id, article_title in articles:
-                    article_filename = articleid2filename(count, self.booktype)
-                    article_filename = self.xhtmldir+article_filename
-                    np = self.get_navpoint(count, article_title, article_filename)
-                    navpoints.append(np)
-                    count += 1
+            #         for article_id in chapter_articles:
+            #             for artid, arttitle in articles:
+            #                 if artid == article_id:
+            #                     article_filename = articleid2filename(artid, self.booktype)
+            #                     article_filename = self.xhtmldir+article_filename
+            #                     np = self.get_navpoint(count, arttitle, article_filename)
+            #                     navpoints.append(np)
+            #                     count += 1
+            # else:
+            #     for article_id, article_title in articles:
+            #         article_filename = articleid2filename(count, self.booktype)
+            #         article_filename = self.xhtmldir+article_filename
+            #         np = self.get_navpoint(count, article_title, article_filename)
+            #         navpoints.append(np)
+            #         count += 1
 
             fields = {
                 'bookid':self.bookid,
