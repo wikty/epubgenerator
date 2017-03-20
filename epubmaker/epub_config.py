@@ -1,29 +1,11 @@
-import os, json
-from .bookmeta import BookmetaRaw
+import os, json, shutil, errno
+from .models import BookEntry
+from .models import BookMeta
+from .models import Chapter
+from .models import Article
+from .utils import chapterid2filename, articleid2filename
 
 class EpubConfig(object):
-	_book_meta_info = {
-		'tw': {
-			'bookcat': '叢書名',
-			'bookid': 'xxxxxxxx-xxxxxxxx',
-			'author': '〔朝代〕作者名　身份',
-			'publisher': '©藝雅出版社',
-			'covertitle': '封面',
-			'fronttitle': '版權信息',
-			'contentstitle': '目錄',
-			'navtitle': '目錄'
-		},
-		'zh': {
-			'bookcat': '丛书名',
-			'bookid': 'xxxxxxxx-xxxxxxxx',
-			'author': '〔朝代〕作者名　身份',
-			'publisher': '©艺雅出版社',
-			'covertitle': '封面',
-			'fronttitle': '版权信息',
-			'contentstitle': '目录',
-			'navtitle': '目录'
-		}
-	}
 
 	_target_epub_files = {
 		'coverpage': 'coverpage.xhtml',
@@ -45,7 +27,16 @@ class EpubConfig(object):
 		'container': 'container.xml'
 	}
 
-	def __init__(self, bookname, bookcname, booktype, targetdir, sourcedir, templatedir, jsonfile, metafile, chapteralone):		
+	def __init__(self, 
+		bookname, 
+		bookcname, 
+		booktype, 
+		targetdir, 
+		sourcedir, 
+		templatedir, 
+		jsonfile, 
+		metafile, 
+		chapteralone):	
 		# check directories and files
 		targetdir = targetdir.rstrip('/')
 		sourcedir = sourcedir.rstrip('/')
@@ -58,45 +49,37 @@ class EpubConfig(object):
 			raise Exception('epub template directory not existed: %s' % templatedir)
 		if not os.path.exists(jsonfile):
 			raise Exception('epub json data not existed: %s' % jsonfile)
-
-		# whether chapter has a single page for introduction itself
-		self.has_chapter_page = chapteralone
-
+		# directories&files
 		self.targetdir = targetdir
 		self.sourcedir = sourcedir
 		self.templatedir = templatedir
-		self.jsonfile = jsonfile # data for making ebook
-		self.metafile = metafile # meta data about the above data
-
+		self.jsonfile = jsonfile # data for building ebook
+		self.metafile = metafile # meta data about the building data
+		# whether chapter has a single page for introduction itself
+		self.chapteralone = chapteralone
 		# this book's basic information
 		self.bookname = bookname
 		self.bookcname = bookcname
 		self.booktype = booktype if booktype in ['tw', 'zh'] else 'tw'
-		# book meta information for all books
-		self.book_meta_info = self._book_meta_info['tw'] if self.booktype == 'tw' else self._book_meta_info['zh']
-
-		# chapter and article meta information
-		meta = None
-		if os.path.exists(self.metafile):
-			with open(self.metafile, 'r', encoding='utf8') as f:
-				item = json.loads(f.read())
-				try:
-					meta = BookmetaRaw(item)
-				except Exception as e:
-					raise e
-					#raise Exception('meta file [%s] has errors' % self.metafile)
-		else:
-			# meta file not exists, book is standalone and
-			# meta information generate from data json file
-			meta = BookmetaRaw.create_meta_from_jsonfile(self.jsonfile)
-		if not meta:
-			raise Exception('there is some wrong with %s' % self.metafile)
-		
-		self.standalone = meta.get_standalone()
-		self.chapter_dict = meta.get_chapter_dict()
-		self.article_dict = meta.get_article_dict()
-
+		# book entry information for all books
+		self.book_entry = None
+		# book meta information
+		self.book_meta = None
+		# book data holder
+		self.chapters = {}
+		self.articles = {}
 		# source epub directory
+		self.source_epub_dirs = {}
+		# source epub files
+		self.source_epub_files = {}
+		# target epub directory
+		self.target_epub_dirs = {}
+		# target epub files
+		self.target_epub_files = {}
+		self.setup()
+
+	def set_source_dirs_files(self, sourcedir):
+		sourcedir = self.sourcedir
 		self.source_epub_dirs = {
 			'root': sourcedir,
 			'epub': os.sep.join([sourcedir, 'EPUB']),
@@ -107,8 +90,6 @@ class EpubConfig(object):
 			'js': os.sep.join([sourcedir, 'EPUB','js'])
 		}
 
-		# source epub files
-		self.source_epub_files = {}
 		for k,v in self._source_epub_files.items():
 			if k == 'maincssfile':
 				self.source_epub_files[k] = os.sep.join([self.source_epub_dirs['css'], v])
@@ -119,9 +100,11 @@ class EpubConfig(object):
 			elif k == 'container':
 				self.source_epub_files[k] = os.sep.join([self.source_epub_dirs['metainf'], v])
 			else:
-				raise Exception('unknow source epub file')
+				pass
 
-		# target epub directory
+	def set_target_dirs_files(self):
+		targetdir = self.targetdir
+		bookname = self.bookname
 		self.target_epub_dirs = {
 			'root': os.sep.join([targetdir, bookname]),
 			'epub': os.sep.join([targetdir, bookname,'EPUB']),
@@ -132,8 +115,6 @@ class EpubConfig(object):
 			'js': os.sep.join([targetdir, bookname,'EPUB','js'])
 		}
 
-		# target epub files
-		self.target_epub_files = {}
 		for k,v in self._target_epub_files.items():
 			if v.endswith('.xhtml'):
 				self.target_epub_files[k] = os.sep.join([self.target_epub_dirs['xhtml'], v])
@@ -150,10 +131,57 @@ class EpubConfig(object):
 			elif k == 'mimetype':
 				self.target_epub_files[k] = os.sep.join([self.target_epub_dirs['root'], v])
 			else:
-				raise Exception('unknow target epub file type')
+				pass
 
-	def get_has_chapter_page(self):
-		return self.has_chapter_page
+	def create_target_dirs_files(self):
+		# make epub directories and copy resource epub files
+		target_epub_dirs = self.get_target_epub_dirs()
+		target_epub_files = self.get_target_epub_files()
+		source_epub_files = self.get_source_epub_files()
+		# make epub resource directories
+		for dirname in target_epub_dirs.values():
+			try:
+				os.makedirs(dirname)
+			except OSError as e:
+				if e.errno != errno.EEXIST:
+					raise
+		for k, filename in source_epub_files.items():
+			shutil.copy(filename, target_epub_files[k])
+
+	def setup(self):
+		# config target&source epub directories and files
+		self.set_target_dirs_files()
+		self.set_source_dirs_files()
+		self.create_target_dirs_files()
+		# load book entry information
+		self.book_entry = BookEntry(self.booktype)
+		# load book meta information
+		meta = None
+		if os.path.exists(self.metafile):
+			with open(self.metafile, 'r', encoding='utf8') as f:
+				item = json.loads(f.read())
+				try:
+					meta = BookMeta(item)
+				except Exception as e:
+					raise e
+					#raise Exception('meta file [%s] has errors' % self.metafile)
+		else:
+			# meta file not exists, book is standalone and
+			# meta information generate from data json file
+			meta = BookMeta.create_meta_from_jsonfile(self.jsonfile)
+		if not meta:
+			raise Exception('there is some wrong with %s' % self.metafile)
+		self.book_meta = meta
+		
+		# load book data
+		for chapter_id in self.book_meta.get_chapters_id():
+			chapter = Chapter(self.book_meta.get_chapter(chapter_id))
+			self.chapters[chapter_id] = chapter
+		
+		with open(self.jsonfile, 'r', encoding='utf8') as f:
+			for line in f:
+				article = Article(json.loads(line))
+				self.articles[article.get_id()] = article
 
 	def get_bookname(self):
 		return self.bookname
@@ -164,71 +192,49 @@ class EpubConfig(object):
 	def get_booktype(self):
 		return self.booktype
 
-	def get_epub_targetdir(self):
-		return self.targetdir
+	def get_book_entry(self, name):
+		result = ''
+		if name == 'bookid':
+			result = self.book_entry.get_book_id()
+		elif name == 'bookcat':
+			result = self.book_entry.get_book_category()
+		elif name == 'author':
+			result = self.book_entry.get_book_author()
+		elif name == 'publisher':
+			result = self.book_entry.get_book_publisher()
+		elif name == 'covertitle':
+			result = self.book_entry.get_book_cover_title()
+		elif name == 'contentstitle':
+			result = self.book_entry.get_book_contents_title()
+		elif name == 'navtitle':
+			result = self.book_entry.get_book_nav_title()
+		elif name == 'fronttitle':
+			result = self.book_entry.get_book_front_title()
+		return result
 
-	def get_epub_sourcedir(self):
-		return self.sourcedir
+	def get_target_epub_dirs(self, name=None):
+		if name is None:
+			return self.target_epub_dirs
+		return self.target_epub_dirs.get(name, None)
 
-	def get_book_meta(self, name):
-		if not name in self.book_meta_info:
-			raise Exception('{} not in book meta information'.format(name))
-		return self.book_meta_info[name]
-
-	def get_epub_templatedir(self):
-		return self.templatedir
-
-	def get_target_epub_dirs(self):
-		return self.target_epub_dirs
-
-	def get_target_epub_dirname(self, name):
-		if not name in self.target_epub_dirs:
-			raise Exception('{} epub directory not existed'.format(name))
-		return self.target_epub_dirs[name]
-
-	def get_target_epub_files(self, full=True):
-		if full:
-			return self.target_epub_files
-		else:
-			return self._target_epub_files
-
-	def get_target_epub_filename(self, name, full=True):
+	def get_target_epub_files(self, name, full=True):
 		if full:
 			files = self.target_epub_files
 		else:
 			files = self._target_epub_files
+		return files.get(name, None)
 
-		if not name in files:
-				raise Exception('{} epub file not existed'.format(name))
-		return files[name]
+	def get_source_epub_dirs(self, name=None):
+		if name is None:
+			return self.source_epub_dirs
+		return self.source_epub_dirs.get(name, None)
 
-	def get_source_epub_files(self, full=True):
+	def get_source_epub_files(self, name, full=True):
 		if full:
-			return self.source_epub_files
-		else:
-			return self._source_epub_files
-
-	def get_source_epub_filename(self, name, full=True):
-		if full:
-			files = self.source_epub_files
-		else:
 			files = self._source_epub_files
-
-		if not name in files:
-			raise Exception('{} epub source filename not existed'.format(name))
-		return files[name]
-
-	def get_source_data_filename(self):
-		return self.jsonfile
-
-	def get_metafile_filename(self):
-		return self.metafile
-
-	def is_standalone_book(self):
-		return self.standalone
-
-	def get_chapter_id_list(self):
-		return sorted(self.chapter_dict.keys())
+		else:
+			files = self.source_epub_files
+		return files.get(name)
 
 	def get_prefix_of_article_id_in_contents(self):
 		return 'a'
@@ -236,22 +242,34 @@ class EpubConfig(object):
 	def get_prefix_of_chapter_id_in_contents(self):
 		return 'c'
 
+	def get_chapter_id_list(self):
+		return sorted(self.chapters.keys())
+
 	def get_article_id_list(self):
-		return sorted(self.article_dict.keys())
+		return sorted(self.articles.keys())
 
-	def get_chapter_id(self, article_id):
-		article_id = int(article_id)
-		return self.article_dict.get(article_id, {'chapter_id': None})['chapter_id']
+	def get_has_multiple_chapters(self):
+		return self.book_meta.get_standalone()
 
-	def get_articles_id(self, chapter_id):
-		chapter_id = int(chapter_id)
-		articles = self.chapter_dict.get(chapter_id, {'articles': []})['articles']
-		return sorted(articles)
+	def get_has_chapter_page(self):
+		return self.chapteralone
+
+	def get_epub_targetdir(self):
+		return self.targetdir
+
+	def get_epub_sourcedir(self):
+		return self.sourcedir
+
+	def get_epub_templatedir(self):
+		return self.templatedir
 
 	def get_chapter(self, chapter_id):
 		chapter_id = int(chapter_id)
-		return self.chapter_dict.get(chapter_id, {})
+		return self.chapters.get(chapter_id, None)
 
 	def get_article(self, article_id):
 		article_id = int(article_id)
-		return self.article_dict.get(article_id, {})
+		return self.articles.get(article_id, None)
+
+	def get_contents(self):
+		pass

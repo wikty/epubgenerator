@@ -91,8 +91,7 @@ def run(
 				'chapteralone': chapteralone,
 			}).run()
 		except Exception as e:
-			raise e
-			report['damaged'][en_name] = e
+			report['damaged'][en_name] = str(e)
 			display(en_name, 'is damaged!!!')
 			continue
 		
