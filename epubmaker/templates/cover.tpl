@@ -21,7 +21,7 @@
     </head>
     <body>
         <div class="cover_img">
-            <img alt="cover image" src="../img/{coverfile}" />
+            <img alt="cover image" src="../img/{coverimg}" />
         </div>
     </body>
 </html>

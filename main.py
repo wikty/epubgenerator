@@ -13,24 +13,18 @@ def generate_epub(rootdir):
 	epub target directory 	: 	rootdir/products/today/epub/
 	book target directory 	: 	rootdir/products/today/book/
 	report file 			: 	rootdir/products/today/report.json
-	epub source directory   :   define your source epub files directory
-	epub template directory :   define your epub templates directory
 	epub check path         :   define your epubchecker path
 	'''
 	today = time.strftime('%Y_%m_%d')
 	epub_data_directory = os.sep.join([rootdir, 'data', today])
-	epub_source_directory = os.sep.join([rootdir, 'epubmaker', 'epub'])
-	epub_template_directory = os.sep.join([rootdir, 'epubmaker', 'templates'])
-	epub_check_path = os.sep.join([rootdir, 'epubcheck-4.0.1/epubcheck.jar']) # relative to the *.epub file
+	books_filename = os.sep.join([epub_data_directory, 'books.jl'])
+	epub_check_path = os.sep.join([rootdir, 'epubcheck-4.0.1/epubcheck.jar'])
 	book_target_directory = os.sep.join([rootdir, 'products', today, 'book'])
 	epub_target_directory = os.sep.join([rootdir, 'products', today, 'epub'])
 	report_filename = os.sep.join([rootdir, 'products', today, 'report.json'])
-	books_filename = os.sep.join([epub_data_directory, 'books.jl'])
 
 	source_items = [
 		epub_data_directory,
-		epub_source_directory,
-		epub_template_directory,
 		epub_check_path,
 		books_filename
 	]
@@ -50,8 +44,6 @@ def generate_epub(rootdir):
 
 	return epub_maker_run(**{
 		'epub_data_directory': epub_data_directory,
-		'epub_source_directory': epub_source_directory,
-		'epub_template_directory': epub_template_directory,
 		'epub_check_path': epub_check_path,
 		'book_target_directory': book_target_directory,
 		'epub_target_directory': epub_target_directory,

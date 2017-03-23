@@ -7,8 +7,8 @@
         <title>{title}</title>
     </head>
     <body>
-    	<h1><a href="{contentspage}#{chapter_id_prefix}{chapter_id}">{chapter_title}</a></h1>
-        <h2><a href="{contentspage}#{article_id_prefix}{article_id}">{title}</a></h2>
+    	<h1><a href="{contentsfile}#{chapter_id_prefix}{chapter_id}">{chapter_title}</a></h1>
+        <h2><a href="{contentsfile}#{article_id_prefix}{article_id}">{title}</a></h2>
         {content}
     </body>
 </html>

@@ -7,6 +7,6 @@
         <title>{title}</title>
     </head>
     <body>
-        <h2><a href="{contentspage}#{chapter_id_prefix}{chapter_id}">{title}</a></h2>
+        <h2><a href="{contentsfile}#{chapter_id_prefix}{chapter_id}">{title}</a></h2>
     </body>
 </html>

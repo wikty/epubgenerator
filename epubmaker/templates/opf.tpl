@@ -13,12 +13,13 @@
       <meta content="0.7.4" name="Sigil version" />
    </metadata>
    <manifest>
-   {items}
+{items}
    </manifest>
    <spine toc="ncx">
-   {itemrefs}
+{itemrefs}
    </spine>
    <guide>
-      <reference href="{coverpage}" type="cover" />
+{references}
    </guide>
+
 </package>

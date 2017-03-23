@@ -7,7 +7,7 @@
         <title>{title}</title>
     </head>
     <body>
-        <h2><a href="{contentspage}#{article_id_prefix}{article_id}">{title}</a></h2>
+        <h2><a href="{contentsfile}#{article_id_prefix}{article_id}">{title}</a></h2>
         {content}
     </body>
 </html>

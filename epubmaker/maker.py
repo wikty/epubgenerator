@@ -1,35 +1,16 @@
 import os, json, subprocess, sys, shutil
 
 from .epub_generator import EpubGenerator
-
-class Books(object):
-	"""docstring for Books"""
-	def __init__(self, books_filename):
-		if not os.path.exists(books_filename):
-			raise Exception('books filename %s not exists' % books_filename)
-		self.books = []
-		with open(books_filename, 'r', encoding='utf-8') as f:
-			for line in f:
-				item = json.loads(line)
-				# [en_name, ch_name]
-				self.books.append([item['en_name'], item['ch_name'], item['type']])
-
-	def get_books(self):
-		'''
-		[[en_name, ch_name], ...]
-		'''
-		return self.books
+from .models import Books
 
 def display(target, message):
 	print('[%s]' % target, message)
 
-def replace_en_name(filename, en_name):
+def get_filename(filename, en_name):
 	return filename.replace('[en_name]', en_name)
 
 def run(
 	epub_data_directory,
-	epub_source_directory,
-	epub_template_directory,
 	epub_check_path,
 	book_target_directory,
 	epub_target_directory,
@@ -43,63 +24,66 @@ def run(
 		'exists': [],
 		'invalid': [],
 		'valid': [],
-		'missing': [],
+		'lost': [],
+		'autometa': [],
 		'damaged': {}
 	}
 	bs = Books(books_filename)
 	for en_name, ch_name, booktype in bs.get_books():
-		# book directory
-		bookdir = os.sep.join([epub_target_directory, en_name])
-		# check if book exists
-		if os.path.exists(bookdir):
+		# book epub directory
+		epubdir = os.sep.join([epub_target_directory, en_name])
+		# check whether book exists or not
+		if os.path.exists(epubdir):
 			display(en_name, 'exists!')
 			report['exists'].append({
 				'en_name': en_name,
 				'ch_name': ch_name
 			})
 			continue
-			
 		display(en_name, 'generating...')
 		# jsonfile
-		jsonfile = replace_en_name(jsonfile, en_name)
+		jsonfile = get_filename(jsonfile, en_name)
 		# metafile
-		metafile = replace_en_name(metafile, en_name)
+		metafile = get_filename(metafile, en_name)
 		epub_data_jsonfile = os.sep.join([epub_data_directory, jsonfile])
 		epub_data_metafile = os.sep.join([epub_data_directory, metafile])
 		
 		if not os.path.exists(epub_data_jsonfile):
-			report['missing'].append({
+			report['lost'].append({
 				'en_name': en_name,
 				'ch_name': ch_name,
-				'meta': os.path.exists(epub_data_metafile)
+				'meta_exists': os.path.exists(epub_data_metafile)
 			})
-			display(en_name, 'miss!!!')
+			display(en_name, 'lost!!!')
 			continue
-		# NOTICE: meta file not exists, means book is standalone
-		
+		if not os.path.exists(epub_data_metafile):
+			# NOTICE: meta file not exists, means book is standalone
+			report['autometa'].append({
+				'en_name': en_name,
+				'ch_name': ch_name
+			})
 		# generate e-book
 		try:
 			EpubGenerator(**{
 				'bookcname': ch_name,
 				'bookname': en_name,
 				'booktype': booktype,
-				'targetdir': epub_target_directory,
-				'sourcedir': epub_source_directory,
-				'templatedir': epub_template_directory,
+				'targetdir': epubdir,
 				'jsonfile': epub_data_jsonfile,
 				'metafile': epub_data_metafile,
 				'chapteralone': chapteralone,
 			}).run()
 		except Exception as e:
-			report['damaged'][en_name] = str(e)
-			display(en_name, 'is damaged!!!')
-			continue
+			raise e
+			# report['damaged'][en_name] = str(e)
+			# display(en_name, 'is damaged!!!')
+			# continue
 		
 		# archive epub
 		# mimetype must be plain text(no compressed), 
 		# must be first file in archive, so other inable-unzip 
 		# application can read epub's first 30 bytes
-		os.chdir(bookdir) # current directory is bookdir
+		os.chdir(epubdir) # current directory is epubdir
 		epubname = '%s.epub' % en_name
 		display(epubname, 'archiving...')
 		os.system("zip -0Xq %s mimetype" % epubname)

@@ -9,9 +9,9 @@
 <nav epub:type="toc" id="toc">
   <h2>{title}</h2>
   <ol epub:type="list">
-    <li><a href="{coverpage}">{covertitle}</a></li>
-    <li><a href="{frontpage}">{fronttitle}</a></li>
-    <li><a href="{contentspage}">{contentstitle}</a></li>
+    <li><a href="{coverfile}">{covertitle}</a></li>
+    <li><a href="{frontfile}">{fronttitle}</a></li>
+    <li><a href="{contentsfile}">{contentstitle}</a></li>
 {content}
   </ol>
 </nav>

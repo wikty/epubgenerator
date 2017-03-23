@@ -26,8 +26,11 @@ class TplSimpleManager(object):
 	def get_templatedir(self):
 		return self.tpldir
 
-	def get_template(self, name):
-		tpl_path = os.sep.join([self.tpldir, name+'.tpl'])
+	def get_template(self, name, booktype=''):
+		if not booktype:
+			tpl_path = os.sep.join([self.tpldir, name+'.tpl'])
+		else:
+			tpl_path = os.sep.join([self.tpldir, name+'_%s.tpl' % booktype])
 		if not os.path.exists(tpl_path):
 			raise Exception('template {} not existed'.format(name))
 		if name not in self.tpls:

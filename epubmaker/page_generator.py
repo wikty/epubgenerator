@@ -1,28 +1,79 @@
 # -*- coding:utf-8 -*-
-import os
+import os, time
 from .utils import chapterid2filename, articleid2filename
 
 class PageGenerator():
 
-    def __init__(self, targetdir, extra):
-        if not os.path.exists(targetdir):
-            raise Exception('target directory {} not existed'.format(targetdir))
-        targetdir = targetdir.rstrip(os.sep)
+    def __init__(
+        self,
+        epubdir,
+        xhtmldir,
+        navtitle,
+        covertitle,
+        fronttitle,
+        contentstitle,
+        navfile,
+        coverfile,
+        frontfile,
+        contentsfile,
+        maincssfile,
+        coverimg,
+        packagefile,
+        ncxfile,
+        bookid,
+        booktype,
+        bookcat,
+        bookcname,
+        author,
+        publisher,
+        publish_year,
+        modify_year,
+        modify_month,
+        modify_day,
+        article_id_prefix,
+        chapter_id_prefix
+        ):
+        # if not os.path.exists(xhtmldir):
+        #     raise Exception('xhtml directory {} not existed'.format(xhtmldir))
+        # if not os.path.exists(epubdir):
+        #     raise Exception('epub directory {} not existed'.format(epubdir))
+        xhtmldir = xhtmldir.rstrip(os.sep)
+        epubdir = epubdir.rstrip(os.sep)
 
-        self.targetdir = targetdir
-        self.booktype = extra['booktype']
-        self.coverpage = extra['coverpage']
-        self.frontpage = extra['frontpage']
-        self.contentspage = extra['contentspage']
-        self.navpage = extra['navpage']
-        self.coverfile = extra['coverfile']
-        self.maincssfile = extra['maincssfile']
-        self.covertitle = extra['covertitle']
-        self.fronttitle = extra['fronttitle']
-        self.contentstitle = extra['contentstitle']
-        self.navtitle = extra['navtitle']
-        self.article_id_prefix = extra['article_id_prefix']
-        self.chapter_id_prefix = extra['chapter_id_prefix']
+        self.xhtmldir = xhtmldir
+        self.epubdir = epubdir
+        self.covertitle = covertitle
+        self.fronttitle = fronttitle
+        self.contentstitle = contentstitle
+        self.navtitle = navtitle
+        self.coverfile = coverfile
+        self.frontfile = frontfile
+        self.contentsfile = contentsfile
+        self.navfile = navfile
+        self.coverimg = coverimg
+        self.maincssfile = maincssfile
+        self.packagefile = packagefile
+        self.ncxfile = ncxfile
+        self.bookid = bookid
+        self.booktype = booktype
+        self.bookcname = bookcname
+        self.bookcat = bookcat
+        self.author = author
+        self.publisher = publisher
+        self.publish_year = publish_year
+        self.modify_year = modify_year
+        self.modify_month = modify_month
+        self.modify_day = modify_day
+        self.article_id_prefix = article_id_prefix
+        self.chapter_id_prefix = chapter_id_prefix
+        self.ncx_relative_dir =''
+        self.xhtml_relative_dir = 'xhtml'
+        self.img_relative_dir = 'img'
+        self.css_relative_dir = 'css'
+        self.js_relative_dir = 'js'
+
+    def now(self, fmt='%Y-%m-%dT%H:%M:%SZ'):
+        return time.strftime(fmt, time.localtime(time.time()))
 
     def get_navpage_li(self, filename, title):
         return '    <li><a href="{filename}">{title}</a></li>'.format(
@@ -30,174 +81,239 @@ class PageGenerator():
             title=title)
 
     def get_contentspage_p(self, level, filename, id_prefix, id, title):
-        return '<p class="sgc-toc-level-{level}"><a href="{filename}" id="{id_prefix}{id}">{title}</a></p>'.format(
+        return '  <p class="sgc-toc-level-{level}"><a href="{filename}" id="{id_prefix}{id}">{title}</a></p>'.format(
             level=level,
             filename=filename,
             id_prefix=id_prefix,
             id=id,
             title=title)
 
+    def get_opf_item(self, dirname, filename, id, mediatype, properties=''):
+        if dirname:
+            dirname = dirname+'/'
+        else:
+            dirname = ''
+        if properties:
+            return '      <item href="{dirname}{filename}" id="{id}" media-type="{mediatype}" properties="{properties}" />'.format(
+                dirname=dirname,
+                filename=filename, 
+                id=id, 
+                mediatype=mediatype, 
+                properties=properties)
+        else:
+            return '      <item href="{dirname}{filename}" id="{id}" media-type="{mediatype}" />'.format(
+                dirname=dirname,
+                filename=filename, 
+                id=id, 
+                mediatype=mediatype)
+
+    def get_opf_item_ncx(self, filename, id):
+        return self.get_opf_item(self.ncx_relative_dir, filename, id, 'application/x-dtbncx+xml')
+
+    def get_opf_item_nav(self, filename, id):
+        return self.get_opf_item(self.xhtml_relative_dir, filename, id, 'application/xhtml+xml', 'nav')
+
+    def get_opf_item_xhtml(self, filename, id):
+        return self.get_opf_item(self.xhtml_relative_dir, filename, id, 'application/xhtml+xml')
+
+    def get_opf_item_css(self, filename, id):
+        return self.get_opf_item(self.css_relative_dir, filename, id, 'text/css')
+
+    def get_opf_item_img(self, filename, id):
+        return self.get_opf_item(self.img_relative_dir, filename, id, 'image/jpeg')
+
+    def get_opf_item_js(self, filename, id):
+        return self.get_opf_item(self.js_relative_dir, filename, id, 'text/javascript')
+
+    def get_opf_itemref(self, id, linear='yes'):
+        linear = 'yes' if linear not in ['yes', 'no'] else linear
+        return '      <itemref idref="{id}" linear="{linear}"/>'.format(id=id, linear=linear)
+
+    def get_opf_reference(self, filename, type, dirname=''):
+        dirname = self.xhtml_relative_dir if not dirname else dirname
+        return '      <reference href="{dirname}/{filename}" type="{type}" />'.format(dirname=dirname, filename=filename, type=type)
+
+    def get_ncx_navpoint(self, id, title, filename):
+        playorder = id
+        return """
+    <navPoint id="navPoint-{id}" playOrder="{playorder}">
+      <navLabel>
+        <text>{title}</text>
+      </navLabel>
+      <content src="{dirname}/{filename}" />
+    </navPoint>""".format(id=id, title=title, playorder=playorder, filename=filename, dirname=self.xhtml_relative_dir)
+
     def generate_article(self, article, tpl):
-        filename = articleid2filename(article['id'], self.booktype)
-        fn = os.sep.join([self.targetdir, filename])
-        
-        with open(fn, 'w', encoding='utf-8') as f:
+        filename = os.sep.join([self.xhtmldir, article['filename']])
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
                 'article_id': article['id'],
-                'article_id_prefix': self.article_id_prefix,
                 'title': article['title'],
                 'content': article['body'],
+                'article_id_prefix': self.article_id_prefix,
                 'maincssfile': self.maincssfile,
-                'contentspage': self.contentspage
+                'contentsfile': self.contentsfile
             }))
-        return filename
 
     def generate_article_with_chapter_title(self, article, tpl):
-        filename = articleid2filename(article['id'], self.booktype)
-        fn = os.sep.join([self.targetdir, filename])
-        
-        with open(fn, 'w', encoding='utf-8') as f:
+        filename = os.sep.join([self.xhtmldir, article['filename']])
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
                 'article_id': article['id'],
-                'article_id_prefix': self.article_id_prefix,
                 'title': article['title'],
-                'chapter_id': article['chapter_id'],
-                'chapter_id_prefix': self.chapter_id_prefix,
-                'chapter_title': article['chapter_title'],
                 'content': article['body'],
+                'chapter_id': article['chapter_id'],
+                'chapter_title': article['chapter_title'],
+                'article_id_prefix': self.article_id_prefix,
+                'chapter_id_prefix': self.chapter_id_prefix,
                 'maincssfile': self.maincssfile,
-                'contentspage': self.contentspage
+                'contentsfile': self.contentsfile
             }))
-        return filename
 
     def generate_chapter(self, chapter, tpl):
-        filename = chapterid2filename(chapter['id'], self.booktype)
-        fn = os.sep.join([self.targetdir, filename])
-
-        with open(fn, 'w', encoding='utf-8') as f:
+        filename = os.sep.join([self.xhtmldir, chapter['filename']])
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
                 'chapter_id': chapter['id'],
-                'chapter_id_prefix': self.chapter_id_prefix,
                 'title': chapter['title'],
+                'chapter_id_prefix': self.chapter_id_prefix,
                 'maincssfile': self.maincssfile,
-                'contentspage': self.contentspage
+                'contentsfile': self.contentsfile
             }))
-        return filename
 
-    def generate_coverpage(self, tpl):
-        filename = os.sep.join([self.targetdir, self.coverpage])
-        
+    def generate_cover(self, tpl):
+        filename = os.sep.join([self.xhtmldir, self.coverfile])
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(tpl.format({
-                'coverfile': self.coverfile,
+                'coverimg': self.coverimg,
                 'title': self.covertitle
             }))
-        return filename
 
-    def generate_frontpage(self, bookinfo, tpl):
-        filename = os.sep.join([self.targetdir, self.frontpage])
-        
+    def generate_front(self, tpl):
+        filename = os.sep.join([self.xhtmldir, self.frontfile])
         with open(filename, 'w', encoding='utf-8') as f:
-            fields = {
-                'maincssfile': self.maincssfile,
-                'title': self.fronttitle,
-                'book_name': bookinfo['bookcname'],
-                'book_category': bookinfo['bookcat'],
-                'author': bookinfo['author'],
-                'publish_year': bookinfo['publish_year'],
-                'bookid': bookinfo['bookid'],
-                'modify_year': bookinfo['modify_year'],
-                'modify_month': bookinfo['modify_month'],
-                'modify_day': bookinfo['modify_day']
-            }
-            f.write(tpl.format(fields))
-        return filename
-
-    def generate_navpage(self, contents, tpl):
-    # def generate_navpage(self, articles, chapters, tpl):
-        filename = os.sep.join([self.targetdir, self.navpage])
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            l = []
-            for item_id, title, filename, is_chapter in contents:
-                li = self.get_navpage_li(filename, title)
-                l.append(li)
-            # if chapters:
-            #     l = []
-            #     for chapid, chaptitle, chap_articles in chapters:
-            #         chapfile = chapterid2filename(chapid, self.booktype)
-            #         li = self.get_navpage_li(chapfile, chaptitle)
-            #         l.append(li)
-            #         for article_id in chap_articles:
-            #             found = False
-            #             artfile = articleid2filename(article_id, self.booktype)
-            #             for artid, arttitle in articles:
-            #                 if artid == article_id:
-            #                     found = True
-            #                     break
-            #             if not found:
-            #                 arttitle = 'None'
-            #             li = self.get_navpage_li(artfile, arttitle)
-            #             l.append(li)
-            # else:
-            #     l = []
-            #     for artid, arttitle in articles:
-            #         artfile = articleid2filename(artid, self.booktype)
-            #         li = self.get_navpage_li(artfile, arttitle)
-            #         l.append(li)
-            content = '\n'.join(l)
             f.write(tpl.format({
                 'maincssfile': self.maincssfile,
+                'title': self.fronttitle,
+                'bookid': self.bookid,
+                'book_name': self.bookcname,
+                'book_category': self.bookcat,
+                'author': self.author,
+                'publish_year': self.publish_year,
+                'modify_year': self.modify_year,
+                'modify_month': self.modify_month,
+                'modify_day': self.modify_day
+            }))
+
+    def generate_nav(self, contents, tpl):
+        filename = os.sep.join([self.xhtmldir, self.navfile])
+        with open(filename, 'w', encoding='utf-8') as f:
+            l = []
+            for item in contents:
+                item_id = item.get_id()
+                item_title = item.get_title()
+                item_achor = item.get_achor()
+                l.append(self.get_navpage_li(item_achor, item_title))
+            content = '\n'.join(l)
+            f.write(tpl.format({
                 'title': self.navtitle,
                 'content': content,
+                'maincssfile': self.maincssfile,
                 'covertitle': self.covertitle,
                 'contentstitle': self.contentstitle,
                 'fronttitle': self.fronttitle,
-                'coverpage': self.coverpage,
-                'frontpage': self.frontpage,
-                'contentspage': self.contentspage
+                'coverfile': self.coverfile,
+                'frontfile': self.frontfile,
+                'contentsfile': self.contentsfile
             }))
-        return filename
 
-    def generate_contentspage(self, contents, tpl):
-    # def generate_contentspage(self, articles, chapters, tpl):
-        filename = os.sep.join([self.targetdir, self.contentspage])
-        
+    def generate_contents(self, contents, tpl):
+        filename = os.sep.join([self.xhtmldir, self.contentsfile])
         with open(filename, 'w', encoding='utf-8') as f:
             l = []
-            for item_id, title, filename, is_chapter in contents:
+            for item in contents:
+                item_id = item.get_id()
+                item_title = item.get_title()
+                item_body = item.get_body()
+                item_achor = item.get_achor()
+                item_extra = item.get_extra()
+                is_chapter = item.is_chapter()
                 if is_chapter:
-                    p = self.get_contentspage_p(1, filename, self.chapter_id_prefix, item_id, title)
+                    p = self.get_contentspage_p(1, item_achor, self.chapter_id_prefix, item_id, item_title)
                 else:
-                    p = self.get_contentspage_p(2, filename, self.article_id_prefix, item_id, title)
+                    p = self.get_contentspage_p(2, item_achor, self.article_id_prefix, item_id, item_title)
                 l.append(p)
-            # if chapters:
-            #     l = []
-            #     for chapid, chaptitle, chap_articles in chapters:
-            #         chapfile = chapterid2filename(chapid, self.booktype)
-            #         p = self.get_contentspage_p(1, chapfile, self.chapter_id_prefix, chapid, chaptitle)
-            #         l.append(p)
-            #         for article_id in chap_articles:
-            #             artfile = articleid2filename(article_id, self.booktype)
-            #             found = False
-            #             for artid, arttitle in articles:
-            #                 if artid == article_id:
-            #                     found = True        
-            #                     break
-            #             if not found:
-            #                 arttitle = 'None'
-            #             p = self.get_contentspage_p(2, artfile, self.article_id_prefix, article_id, arttitle)
-            #             l.append(p)
-            # else:
-            #     l = []
-            #     for artid, arttitle in articles:
-            #         artfile = articleid2filename(artid, self.booktype)
-            #         p = self.get_contentspage_p(1, artfile, self.article_id_prefix, artid, arttitle)
-            #         l.append(p)
             content = '\n'.join(l)
             f.write(tpl.format({
-                'maincssfile': self.maincssfile,
                 'title': self.contentstitle,
-                'content': content
+                'content': content,
+                'maincssfile': self.maincssfile,
             }))
-        return filename
+
+    def generate_opf(self, contents, tpl):
+        filename  = os.sep.join([self.epubdir, self.packagefile])
+        with open(filename, 'w', encoding='utf-8') as f:
+            items = []
+            itemrefs = []
+            coverpage_id = 'coverpage'
+            frontpage_id = 'frontpage'
+            contentspage_id = 'contentspage'
+            
+            items.append(self.get_opf_item_ncx(filename=self.ncxfile, id='ncx'))
+            items.append(self.get_opf_item_img(filename=self.coverimg, id='cover.jpg'))
+            items.append(self.get_opf_item_css(filename=self.maincssfile, id='main.css'))
+            items.append(self.get_opf_item_nav(filename=self.navfile, id='nav'))
+            items.append(self.get_opf_item_xhtml(filename=self.coverfile, id=coverpage_id))
+            itemrefs.append(self.get_opf_itemref(id=coverpage_id))
+            items.append(self.get_opf_item_xhtml(filename=self.frontfile, id=frontpage_id))
+            itemrefs.append(self.get_opf_itemref(id=frontpage_id))
+            items.append(self.get_opf_item_xhtml(filename=self.contentsfile, id=contentspage_id))
+            itemrefs.append(self.get_opf_itemref(id=contentspage_id))
+
+            for item in contents:
+                item_id = item.get_id()
+                item_title = item.get_title()
+                item_body = item.get_body()
+                item_achor = item.get_achor()
+                item_extra = item.get_extra()
+                is_page = item.is_page()
+                is_chapter = item.is_chapter()
+                if is_page:
+                    items.append(self.get_opf_item_xhtml(filename=item_achor, id=item_achor))
+                    itemrefs.append(self.get_opf_itemref(id=item_achor))
+
+            references = [self.get_opf_reference(self.coverfile, 'cover')]
+            fields = {
+                'bookid': self.bookid,
+                'title': self.bookcname,
+                'author': self.author,
+                'publisher': self.publisher,
+                'datetime': self.now(),
+                'items': '\n'.join(items),
+                'itemrefs': '\n'.join(itemrefs),
+                'references': '\n'.join(references)
+            }
+            f.write(tpl.format(fields))
+
+    def generate_ncx(self, contents, tpl):
+        filename  = os.sep.join([self.epubdir, self.ncxfile])
+        with open(filename, 'w', encoding='utf-8') as f:
+            navpoints = []
+            count = 1
+            for item in contents:
+                item_id = item.get_id()
+                item_title = item.get_title()
+                item_body = item.get_body()
+                item_achor = item.get_achor()
+                item_extra = item.get_extra()
+                is_page = item.is_page()
+                is_chapter = item.is_chapter()
+                if is_page:
+                    np = self.get_ncx_navpoint(count, item_title, item_achor)
+                    navpoints.append(np)
+                    count += 1
+            f.write(tpl.format({
+                'bookid':self.bookid,
+                'title': self.bookcname,
+                'navpoints': '\n'.join(navpoints)
+            }))

@@ -10,7 +10,7 @@
 <body>
 <div class="toc">
   <h2>{title}</h2>
-  {content}
+{content}
 </div>
 </body>
 </html>
