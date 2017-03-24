@@ -1,9 +1,4 @@
-import os, json
-from .models import BookEntry
-from .models import BookMeta
-from .models import Chapter
-from .models import Article
-from .models import Contents
+import os
 
 class EpubConfig(object):
 
@@ -40,19 +35,11 @@ class EpubConfig(object):
 
 		self.jsonfile = jsonfile # data for building ebook
 		self.metafile = metafile # meta data about the building data
-		self.standalone = True # if True book has no chapter
 		self.chapteralone = chapteralone # whether chapter has a single page for itself
 		# book basic information
 		self.bookname = bookname
 		self.bookcname = bookcname
 		self.booktype = booktype if booktype in ['tw', 'zh'] else 'tw'
-		# book entry information
-		self.book_entry = None
-		# book metadata
-		self.book_meta = None
-		# book data
-		self.chapters = {}
-		self.articles = {}
 		# source and target
 		self.targetdir = targetdir.rstrip('/').rstrip('\\')
 		self.sourcedir = sourcedir.rstrip('/').rstrip('\\')
@@ -96,53 +83,21 @@ class EpubConfig(object):
 			'contents': os.sep.join([self.target_epub_dirs['xhtml'], self._target_epub_files['contents']]),
 			'nav': os.sep.join([self.target_epub_dirs['xhtml'], self._target_epub_files['nav']]),
 		}
-		self.setup()
-		
-	def setup(self):
-		# load book entry information
-		self.book_entry = BookEntry(self.booktype)
-		
-		# load book meta information
-		try:
-			if os.path.exists(self.metafile):
-				self.book_meta = BookMeta(self.metafile)
-			else:
-				# meta file not exists, book is standalone and
-				# meta information generate from data json file
-				self.book_meta = BookMeta.create_meta_from_jsonfile(
-					self.jsonfile, 
-					self.bookname, 
-					self.bookcname, 
-					self.booktype)
-			self.standalone = self.book_meta.get_standalone()
-		except Exception as e:
-			raise e
-		
-		# load book data
-		self.articles = Article.create_articles_from_jsonfile(self.jsonfile, self.book_meta.get_article_meta()) # id: article
-		self.chapters = Chapter.create_chapters_from_meta(self.book_meta.get_chapter_meta()) # id: chapter
-		self.contents = Contents(self.articles, self.chapters, self.standalone, self.chapteralone, self.booktype)
-	
-	def get_book_entry(self, name):
-		entry = {
-			'bookname': self.bookname,
-			'bookcname': self.bookcname,
-			'booktype': self.booktype,
-			'bookid': self.book_entry.get_book_id(),
-			'bookcat': self.book_entry.get_book_category(),
-			'author': self.book_entry.get_book_author(),
-			'publisher': self.book_entry.get_book_publisher(),
-			'covertitle': self.book_entry.get_book_cover_title(),
-			'contentstitle': self.book_entry.get_book_contents_title(),
-			'navtitle': self.book_entry.get_book_nav_title(),
-			'fronttitle': self.book_entry.get_book_front_title(),
-			'publish_year': self.book_entry.get_book_publish_year(),
-			'modify_year': self.book_entry.get_book_modify_year(),
-			'modify_month': self.book_entry.get_book_modify_month(),
-			'modify_day': self.book_entry.get_book_modify_day(),
-		}
-		
-		return entry.get(name, '')
+
+	def get_bookname(self):
+		return self.bookname
+
+	def get_bookcname(self):
+		return self.bookcname
+
+	def get_booktype(self):
+		return self.booktype
+
+	def get_jsonfile(self):
+		return self.jsonfile
+
+	def get_metafile(self):
+		return self.metafile
 
 	def get_target_epub_dirs(self, name=None):
 		if name is None:
@@ -165,31 +120,8 @@ class EpubConfig(object):
 	def get_prefix_of_chapter_id_in_contents(self):
 		return 'c'
 
-	# def get_chapter_id_list(self):
-	# 	return sorted(self.chapters.keys())
-
-	# def get_article_id_list(self):
-	# 	return sorted(self.articles.keys())
-
-	def is_standalone(self):
-		return self.standalone
-
 	def is_chapteralone(self):
 		return self.chapteralone
 
 	def get_epub_templatedir(self):
 		return self.templatedir
-
-	# def get_chapter(self, chapter_id):
-	# 	chapter_id = int(chapter_id)
-	# 	return self.chapters.get(chapter_id, None)
-
-	# def get_article(self, article_id):
-	# 	article_id = int(article_id)
-	# 	return self.articles.get(article_id, None)
-
-	def get_contents(self):
-		'''
-		[[id, title, filename, is_chapter, is_page]]
-		'''
-		return self.contents.serialize()

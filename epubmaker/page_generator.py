@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 import os, time
-from .utils import chapterid2filename, articleid2filename
 
 class PageGenerator():
 
@@ -33,12 +32,8 @@ class PageGenerator():
         article_id_prefix,
         chapter_id_prefix
         ):
-        # if not os.path.exists(xhtmldir):
-        #     raise Exception('xhtml directory {} not existed'.format(xhtmldir))
-        # if not os.path.exists(epubdir):
-        #     raise Exception('epub directory {} not existed'.format(epubdir))
-        xhtmldir = xhtmldir.rstrip(os.sep)
-        epubdir = epubdir.rstrip(os.sep)
+        xhtmldir = xhtmldir.rstrip('/').rstrip('\\')
+        epubdir = epubdir.rstrip('/').rstrip('\\')
 
         self.xhtmldir = xhtmldir
         self.epubdir = epubdir

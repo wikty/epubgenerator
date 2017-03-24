@@ -1,36 +1,41 @@
 # -*- coding:utf-8 -*-
-import os, json, time, errno, shutil
-from .epub_config import EpubConfig
+import os, json, errno, shutil
+
+from .models import BookEntry
+from .models import BookMeta
+from .models import Chapter
+from .models import Article
+from .models import Contents
 from .page_generator import PageGenerator
 from .template_manager import TplSimpleManager
 
+
 class EpubGenerator:
 
-    def __init__(self, **kwargs):
-        config = EpubConfig(**kwargs)
+    def __init__(self, config):
         self.config = config
 
-        self.ok = True # book generate successfully
-        # book information
-        self.bookname = config.get_book_entry('bookname')
-        self.bookcname = config.get_book_entry('bookcname')
-        self.booktype = config.get_book_entry('booktype')
-        self.bookid = config.get_book_entry('bookid')
-        self.bookcat = config.get_book_entry('bookcat')
-        self.author = config.get_book_entry('author')
-        self.publisher = config.get_book_entry('publisher')
-        self.publish_year = config.get_book_entry('publish_year')
-        self.modify_year = config.get_book_entry('modify_year')
-        self.modify_month = config.get_book_entry('modify_month')
-        self.modify_day = config.get_book_entry('modify_day')
-        self.covertitle = config.get_book_entry('covertitle')
-        self.contentstitle = config.get_book_entry('contentstitle')
-        self.fronttitle = config.get_book_entry('fronttitle')
-        self.navtitle = config.get_book_entry('navtitle')
+        # book generate successfully
+        self.ok = True
+
+        # book basic information
+        self.bookname = config.get_bookname()
+        self.bookcname = config.get_bookcname()
+        self.booktype = config.get_booktype()
+
+        # data file
+        self.jsonfile = config.get_jsonfile()
+        self.metafile = config.get_metafile()
+
+        # whether has chapter page for introduce itself
+        self.chapteralone = config.is_chapteralone()
 
         # chapter and article id prefix in the contents
         self.article_id_prefix = config.get_prefix_of_article_id_in_contents()
         self.chapter_id_prefix = config.get_prefix_of_chapter_id_in_contents()
+
+        # template manager
+        self.tplmanager = TplSimpleManager(config.get_epub_templatedir())
 
         # target/source epub directories and files
         self.target_epub_dirs = config.get_target_epub_dirs()
@@ -47,50 +52,40 @@ class EpubGenerator:
         self.target_ncxfile = config.get_target_epub_files('ncx', False)
         self.target_maincssfile = config.get_target_epub_files('maincss', False)
         self.target_coverimg = config.get_target_epub_files('coverimg', False)
+        
+        # some fields will be filled later
+        self.standalone = True # standalone means that the book don't have chapters
+        self.book_entry = None
+        self.contents = None
+        self.generator = None
 
-        # standalone means that the book don't have chapters
-        self.standalone = config.is_standalone()
-        # whether has chapter page for introduce itself
-        self.chapteralone = config.is_chapteralone()
-        # chapters id list
-        # self.chapter_id_list = config.get_chapter_id_list()
-        # self.article_id_list = config.get_article_id_list()
-        # table of content
-        self.contents = config.get_contents()
+    def load_data(self):
+        try:
+            # load book entry information
+            self.book_entry = BookEntry(self.booktype)
+            # load book meta data
+            if os.path.exists(self.metafile):
+                book_meta = BookMeta(self.metafile)
+            else:
+                # meta file not exists, book is standalone and
+                # meta information generate from data json file
+                book_meta = BookMeta.create_meta_from_jsonfile(
+                    self.jsonfile, 
+                    self.bookname, 
+                    self.bookcname, 
+                    self.booktype)
+            self.standalone = book_meta.get_standalone()
+            self.contents = Contents(
+                Article.create_articles_from_jsonfile(self.jsonfile, book_meta.get_article_meta()), 
+                Chapter.create_chapters_from_meta(book_meta.get_chapter_meta()), 
+                self.standalone, 
+                self.chapteralone, 
+                self.booktype).serialize()
+        except Exception as e:
+            self.ok = False
+            raise e
 
-        # template manager
-        self.tplmanager = TplSimpleManager(config.get_epub_templatedir())
-        # page generator
-        self.generator = PageGenerator(**{
-            'epubdir': self.target_epubdir,
-            'xhtmldir': self.target_xhtmldir,
-            'navtitle': self.navtitle,
-            'covertitle': self.covertitle,
-            'fronttitle': self.fronttitle,
-            'contentstitle': self.contentstitle,
-            'navfile': self.target_navfile,
-            'coverfile': self.target_coverfile,
-            'frontfile': self.target_frontfile,
-            'contentsfile': self.target_contentsfile,
-            'maincssfile': self.target_maincssfile,
-            'coverimg': self.target_coverimg,
-            'packagefile': self.target_packagefile,
-            'ncxfile': self.target_ncxfile,
-            'bookid': self.bookid,
-            'booktype': self.booktype,
-            'bookcat': self.bookcat,
-            'bookcname': self.bookcname,
-            'author': self.author,
-            'publisher': self.publisher,
-            'publish_year': self.publish_year,
-            'modify_year': self.modify_year,
-            'modify_month': self.modify_month,
-            'modify_day': self.modify_day,
-            'article_id_prefix': self.article_id_prefix,
-            'chapter_id_prefix': self.chapter_id_prefix
-        })
-
-    def start(self):
+    def init(self):
         # make target epub directories and copy source to target files
         for k, dirname in self.target_epub_dirs.items():
             try:
@@ -101,13 +96,41 @@ class EpubGenerator:
         for k, filename in self.source_epub_files.items():
             shutil.copy(filename, self.target_epub_files[k])
 
-    def end(self):
+    def finish(self):
         if not self.ok:
             shutil.rmtree(self.target_rootdir)
 
     def run(self):
         try:
-            self.start()
+            # page generator
+            self.generator = PageGenerator(**{
+                'epubdir': self.target_epubdir,
+                'xhtmldir': self.target_xhtmldir,
+                'navfile': self.target_navfile,
+                'coverfile': self.target_coverfile,
+                'frontfile': self.target_frontfile,
+                'contentsfile': self.target_contentsfile,
+                'maincssfile': self.target_maincssfile,
+                'coverimg': self.target_coverimg,
+                'packagefile': self.target_packagefile,
+                'ncxfile': self.target_ncxfile,
+                'booktype': self.booktype,
+                'bookcname': self.bookcname,
+                'article_id_prefix': self.article_id_prefix,
+                'chapter_id_prefix': self.chapter_id_prefix,
+                'navtitle': self.book_entry.get_book_nav_title(),
+                'covertitle': self.book_entry.get_book_cover_title(),
+                'fronttitle': self.book_entry.get_book_front_title(),
+                'contentstitle': self.book_entry.get_book_contents_title(),
+                'bookid': self.book_entry.get_book_id(),
+                'bookcat': self.book_entry.get_book_category(),
+                'author': self.book_entry.get_book_author(),
+                'publisher': self.book_entry.get_book_publisher(),
+                'publish_year': self.book_entry.get_book_publish_year(),
+                'modify_year': self.book_entry.get_book_modify_year(),
+                'modify_month': self.book_entry.get_book_modify_month(),
+                'modify_day': self.book_entry.get_book_modify_day()
+            })
             self.generate_pages()
             self.generate_cover()
             self.generate_front()
@@ -118,8 +141,6 @@ class EpubGenerator:
         except Exception as e:
             self.ok = False
             raise e
-        finally:
-            self.end()
 
     def generate_pages(self):
         for item in self.contents:

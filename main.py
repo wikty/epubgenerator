@@ -17,7 +17,7 @@ def generate_epub(rootdir):
 	'''
 	today = time.strftime('%Y_%m_%d')
 	epub_data_directory = os.sep.join([rootdir, 'data', today])
-	books_filename = os.sep.join([epub_data_directory, 'books.jl'])
+	books_file_path = os.sep.join([epub_data_directory, 'books.jl'])
 	epub_check_path = os.sep.join([rootdir, 'epubcheck-4.0.1/epubcheck.jar'])
 	book_target_directory = os.sep.join([rootdir, 'products', today, 'book'])
 	epub_target_directory = os.sep.join([rootdir, 'products', today, 'epub'])
@@ -26,7 +26,7 @@ def generate_epub(rootdir):
 	source_items = [
 		epub_data_directory,
 		epub_check_path,
-		books_filename
+		books_file_path
 	]
 
 	target_dirs = [
@@ -47,10 +47,10 @@ def generate_epub(rootdir):
 		'epub_check_path': epub_check_path,
 		'book_target_directory': book_target_directory,
 		'epub_target_directory': epub_target_directory,
+		'books_file_path': books_file_path,
 		'report_filename': report_filename,
-		'books_filename': books_filename,
-		'jsonfile': '[en_name].jl', # [en_name] is placeholder for book en_name
-		'metafile': '[en_name]_meta.json', # [en_name] is placeholder for book en_name
+		'epub_data_json_filename': '[en_name].jl', # [en_name] is placeholder for book en_name
+		'epub_data_meta_filename': '[en_name]_meta.json', # [en_name] is placeholder for book en_name
 		'chapteralone': False
 	})
 
