@@ -26,6 +26,7 @@ def run(
 		raise Exception('epub target directory not exists')
 	if not os.path.exists(books_file_path):
 		raise Exception('books file path not exists')
+	total_count = 0
 	book_count = 0
 	report = []
 	bs = Books(books_file_path)
@@ -33,6 +34,7 @@ def run(
 		epubdir = os.sep.join([epub_target_directory, en_name])
 		jsonfile = os.sep.join([epub_data_directory, get_filename(epub_data_json_filename, en_name)])
 		metafile = os.sep.join([epub_data_directory, get_filename(epub_data_meta_filename, en_name)])
+		total_count += 1
 
 		task_name, message = pipelines_run(**{
 			'ch_name': ch_name,
@@ -45,14 +47,16 @@ def run(
 			'epub_check_path': epub_check_path,
 			'book_target_directory': book_target_directory
 		})
-		report.append({
-			'en_name': en_name,
-			'ch_name': ch_name,
-			'message': '%s - %s' % (task_name, message)
-		})
+		
 		if message == 'ok':
 			book_count += 1
+		else:
+			report.append({
+				'en_name': en_name,
+				'ch_name': ch_name,
+				'message': '%s - %s' % (task_name, message)
+			})
 
 		with open(report_filename, 'w', encoding='utf8') as f:
 			f.write(json.dumps(report, indent=2, ensure_ascii=False))
-	return book_count
+	return [total_count, book_count]

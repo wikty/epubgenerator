@@ -50,6 +50,8 @@ class TaskMinHeap(object):
     def __getitem__(self, i):
         return self.task_list[i]
 
+debug = True
+
 config = [
 	{
 		'name': 'epubdir_check_task',
@@ -178,6 +180,7 @@ def run(**kwargs):
 		result = globals()[task_name](**kwargs)
 		ok = result['ok']
 		message = result['message']
+		
 		# not ok run the remaining tasks
 		if not ok:
 			while not task_queue.empty():
@@ -244,12 +247,15 @@ def epub_config_task(**kwargs):
 	ok = True
 	message = 'ok'
 	info(en_name, 'epub config', 'configing...')
+	e = None
 	try:
 		epubconfig = EpubConfig(**d)
 	except Exception as e:
 		ok = False
 		message = str(e)
 	finally:
+		if debug and e:
+			raise e
 		info(en_name, 'epub config', message)
 		return {
 			'ok': ok,
@@ -267,15 +273,16 @@ def data_load_task(**kwargs):
 		epubgenerator = EpubGenerator(epubconfig)
 		epubgenerator.load_data()
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'load data', message)
-		return {
-			'ok': ok,
-			'message': message,
-			'epubgenerator': epubgenerator
-		}
+	info(en_name, 'load data', message)
+	return {
+		'ok': ok,
+		'message': message,
+		'epubgenerator': epubgenerator
+	}
 
 def epub_init_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -286,14 +293,15 @@ def epub_init_task(**kwargs):
 	try:
 		epubgenerator.init()
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'init epub', message)
-		return {
-			'ok': ok,
-			'message': message
-		}
+	info(en_name, 'init epub', message)
+	return {
+		'ok': ok,
+		'message': message
+	}
 
 def epub_generate_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -304,14 +312,15 @@ def epub_generate_task(**kwargs):
 	try:
 		epubgenerator.run()
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'generate epub', message)
-		return {
-			'ok': ok,
-			'message': message
-		}
+	info(en_name, 'generate epub', message)
+	return {
+		'ok': ok,
+		'message': message
+	}
 
 def epub_archive_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -328,15 +337,16 @@ def epub_archive_task(**kwargs):
 		os.system("zip -0Xq %s mimetype" % epubname)
 		os.system("zip -Xr9Dq %s *" % epubname)
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'archive epub', message)
-		return {
-			'ok': ok,
-			'message': message,
-			'epubname': epubname
-		}
+	info(en_name, 'archive epub', message)
+	return {
+		'ok': ok,
+		'message': message,
+		'epubname': epubname
+	}
 
 def epub_validate_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -372,14 +382,15 @@ def epub_finish_task(**kwargs):
 	try:
 		epubgenerator.finish()
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'epub finish', message)
-		return {
-			'ok': ok,
-			'message': message
-		}
+	info(en_name, 'epub finish', message)
+	return {
+		'ok': ok,
+		'message': message
+	}
 
 def word_generate_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -392,15 +403,16 @@ def word_generate_task(**kwargs):
 		commond = 'pandoc %s -o %s' % (epubname, wordname)
 		os.system(commond)
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'generate word', message)
-		return {
-			'ok': ok,
-			'message': message,
-			'wordname': wordname
-		}
+	info(en_name, 'generate word', message)
+	return {
+		'ok': ok,
+		'message': message,
+		'wordname': wordname
+	}
 
 def product_generate_task(**kwargs):
 	en_name = kwargs['en_name']
@@ -417,11 +429,12 @@ def product_generate_task(**kwargs):
 		shutil.move(epubname, product_epubname)
 		shutil.move(wordname, product_wordname)
 	except Exception as e:
+		if debug:
+			raise e
 		ok = False
 		message = str(e)
-	finally:
-		info(en_name, 'generate product', message)
-		return {
-			'ok': ok,
-			'message': message
-		}
+	info(en_name, 'generate product', message)
+	return {
+		'ok': ok,
+		'message': message
+	}

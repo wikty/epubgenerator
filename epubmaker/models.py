@@ -1,22 +1,6 @@
 # -*- coding:utf-8 -*-
 import os, json
 
-def chapterid2filename(chapterid, booktype='tw'):
-    chapterid = int(chapterid)
-    if booktype == 'tw':
-        filename = 'traditional_chapter_{id:04}.xhtml'.format(id=chapterid)  
-    else:
-        filename = 'simplified_chapter_{id:04}.xhtml'.format(id=chapterid)
-    return filename
-
-def articleid2filename(articleid, booktype='tw'):
-    articleid = int(articleid)
-    if booktype == 'tw':
-        filename = 'traditional_article_{id:04}.xhtml'.format(id=articleid)  
-    else:
-        filename = 'simplified_article_{id:04}.xhtml'.format(id=articleid)
-    return filename
-
 class Books(object):
 	def __init__(self, books_filename):
 		if not os.path.exists(books_filename):
@@ -24,6 +8,8 @@ class Books(object):
 		self.books = []
 		with open(books_filename, 'r', encoding='utf-8') as f:
 			for line in f:
+				if not line.strip():
+					continue
 				item = json.loads(line)
 				self.books.append([item['en_name'], item['ch_name'], item['type']])
 
@@ -38,8 +24,6 @@ class Books(object):
 
 class Chapter(object):
 	def __init__(self, chapter):
-		if 'ch_name' not in chapter or not chapter['ch_name']:
-			raise Exception('chapter must be have a ch_name field and not empty')
 		if 'id' not in chapter or not chapter['id']:
 			raise Exception('chapter must be have a id field')
 		self.id = int(chapter['id'])
@@ -150,6 +134,8 @@ class Article(object):
 		articles = {}
 		with open(jsonfile, 'r', encoding='utf8') as f:
 			for line in f:
+				if not line.strip():
+					continue
 				article = Article(json.loads(line))
 				articles[article.get_id()] = article
 		if article_dict:
@@ -232,12 +218,17 @@ class BookEntry(object):
 		return self.book_entry['modify_day']
 
 class BookMeta(object):
-	def __init__(self, metafile):
-		if not os.path.exists(metafile):
-			raise Exception('meta file not exits, you may want auto-generate it from json data file')
+	def __init__(self, meta, raw=True):
 		metaitem = {}
-		with open(metafile, 'r', encoding='utf8') as f:
-			metaitem = json.loads(f.read())
+		if raw:
+			if not os.path.exists(meta):
+				raise Exception('meta file not exists, you may want auto-generate it from json data file')
+			with open(meta, 'r', encoding='utf8') as f:
+				metaitem = json.loads(f.read())
+		else:
+			if not isinstance(meta, dict):
+				raise Exception('meta data must be a dict object')
+			metaitem = meta
 		if 'book' not in metaitem:
 			raise Exception('meta data must have book field')
 		if 'chapters' not in metaitem:
@@ -301,7 +292,7 @@ class BookMeta(object):
 		'''
 		auto-generate metafile for standalone book
 		'''
-		if not os.path.exits(jsonfile):
+		if not os.path.exists(jsonfile):
 			raise Exception('json data file not exists')
 		if not en_name:
 			raise Exception('you must provide en_name for auto-generating meta data')
@@ -328,21 +319,23 @@ class BookMeta(object):
 		articles = {}
 		with open(jsonfile, 'r', encoding='utf8') as f:
 			for line in f:
+				if not line.strip():
+					continue
 				item = json.loads(line)
 				article_id = int(item['article_id'])
 				chapters[0]['articles'].append(article_id)
 				articles[article_id] = {
 					'chapter_id': 1,
-					'url': item['url'],
+					'url': item.get('url', ''),
 					'en_name': item['en_title'],
 					'ch_name': item['title']
 				}
 		chapters[0]['articles'] = sorted(chapters[0]['articles'])		
-		return BookmetaRaw({
+		return BookMeta({
 			'book': book,
 			'chapters': chapters,
 			'articles': articles
-		})
+		}, False)
 
 class ContentsItem(object):
 	def __init__(self, item_id, title, body, is_chapter, is_page, achor, extra=[]):
@@ -384,6 +377,22 @@ class Contents(object):
 		self.booktype = booktype
 		self.contents = []
 
+	def chapterid2filename(self, chapterid, booktype='tw'):
+	    chapterid = int(chapterid)
+	    if booktype == 'tw':
+	        filename = 'traditional_chapter_{id:04}.xhtml'.format(id=chapterid)  
+	    else:
+	        filename = 'simplified_chapter_{id:04}.xhtml'.format(id=chapterid)
+	    return filename
+
+	def articleid2filename(self, articleid, booktype='tw'):
+	    articleid = int(articleid)
+	    if booktype == 'tw':
+	        filename = 'traditional_article_{id:04}.xhtml'.format(id=articleid)  
+	    else:
+	        filename = 'simplified_article_{id:04}.xhtml'.format(id=articleid)
+	    return filename
+
 	def serialize(self):
 		if self.contents:
 			return self.contents
@@ -400,7 +409,7 @@ class Contents(object):
 						None,
 						True,
 						True, 
-						chapterid2filename(chapter_id, self.booktype)))
+						self.chapterid2filename(chapter_id, self.booktype)))
 				else:
 					article = self.articles[article_id_list[0]]
 					self.contents.append(ContentsItem(
@@ -409,7 +418,7 @@ class Contents(object):
 						None,
 						True,
 						False,
-						articleid2filename(article.get_id(), self.booktype)))
+						self.articleid2filename(article.get_id(), self.booktype)))
 					chapterinfo = [chapter_id, chapter_title]
 			for article_id in article_id_list:
 				article = self.articles[article_id]
@@ -422,6 +431,6 @@ class Contents(object):
 					article.get_body(),
 					False,
 					True,
-					articleid2filename(article_id, self.booktype),
+					self.articleid2filename(article_id, self.booktype),
 					extra))
 		return self.contents

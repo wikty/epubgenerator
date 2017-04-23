@@ -2,8 +2,7 @@
 # -*- coding:utf-8 -*-
 import os, time
 from optparse import OptionParser
-from epubrepair import generate_data
-from epubrepair import check_data
+from epubrepair import generate_data, check_data, merge_data
 from epubmaker import run as epub_maker_run
 
 def generate_epub(rootdir):
@@ -62,6 +61,10 @@ if __name__ == '__main__':
 	if options.action == 'generate-from-txt':
 		print(generate_data('tmp', 'tmp', '生僻字目录', 'zh'))
 	elif options.action == 'check-data':
-		print(check_data('tmp'))
+		today = time.strftime('%Y_%m_%d')
+		print(check_data('data/%s' % today))
 	elif options.action == 'generate-epub':
 		print(generate_epub(os.path.abspath(os.getcwd())))
+	elif options.action == 'merge-data':
+		input1, input2, output = options.data.split(';')
+		print(merge_data(input1, input2, output))

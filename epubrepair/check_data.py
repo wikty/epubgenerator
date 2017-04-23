@@ -5,24 +5,12 @@ class BadFileException(Exception):
 	def __init__(self, *args, **kwargs):
 		super(BadFileException, self).__init__(*args, **kwargs)
 
-def get_message_code(name):
-	codetbl = {
-		'lost-content': 1,
-		'lost-articles-id': 2,
-		'lost-article': 3
-	}
-	if name and codetbl.get(name, None):
-		return codetbl[name]
-	return codetbl
-
-def is_ok(data_file, meta_file):
-	if not os.path.exists(data_file):
-		raise Exception('data file[%s] not exists' % data_file)
+def check_meta(meta_file):
 	if not os.path.exists(meta_file):
 		raise Exception('meta file[%s] not exists' % meta_file)
 
 	ok = True
-	message = ''
+	message = 'ok'
 	# check meta file
 	metainfo = None
 	if ok:
@@ -65,84 +53,81 @@ def is_ok(data_file, meta_file):
 			message = 'meta file[%s] book field should have url'
 	
 	if not ok:
-		raise BadFileException(message % meta_file)
+		raise Exception(message % meta_file)
 	
-	bookinfo = {
+	book = {
 		'ch_name': bookname,
 		'en_name': en_bookname,
 		'type': booktype,
 		'url': bookurl
 	}
-	
 	# check data file
 	meta_all_article_id_list = []
-	meta_lost_article_id_list = []
 	meta_article_info_dict = {}
 	for chapter in chapters:
 		for article_id in chapter.get('articles', []):
 			meta_all_article_id_list.append(article_id)
 			meta_article_info_dict[article_id] = {
-				'url': '',
-				'title': ''
+				'url': articles.get(str(article_id), {}).get('url', ''),
+				'title': articles.get(str(article_id), {}).get('ch_name', ''),
+				'en_title': articles.get(str(article_id), {}).get('en_name', '')
 			}
-			article_id_str = str(article_id)
-			if not articles.get(article_id_str, None):
-				meta_lost_article_id_list.append(article_id)	
-				continue
-			meta_article_info_dict[article_id]['url'] = articles[article_id_str].get('url', '')
-			meta_article_info_dict[article_id]['title'] = articles[article_id_str].get('ch_name', '')
+			if not meta_article_info_dict[article_id]['url']:
+				raise Exception('meta file[%s] articles[%d] not exists or damaged' % (meta_file, article_id))
 
+	return [book, meta_all_article_id_list, meta_article_info_dict]
+
+def check_data(data_file, article_id_list, article_info_dict):
+	if not os.path.exists(data_file):
+		raise Exception('data file[%s] not exists' % data_file)
+	
 	data_all_article_id_list = []
 	data_good_article_id_list = []
 	with open(data_file, 'r', encoding='utf8') as f:
-		lines = f.readlines()
-		for line, lnum in zip(lines, range(len(lines))):
-			item = json.loads(line)
+		try:
+			lines = f.readlines()
+		except Exception as e:
+			msg = '[ERROR]', 'data file[%s] error(%s)' % (data_file, e)
+			raise Exception(msg)
+			# print(msg)
+			# return [[], 0]
+		for line, lnum in zip(lines, range(1, len(lines)+1)):
+			try:
+				item = json.loads(line)
+			except Exception as e:
+				msg = '[ERROR]', 'data file[%s] line[%d] is bad json (%s)' % (data_file, lnum, e)
+				raise Exception(msg)
+				# print(msg)
+				# return [[], 0]
 			if not item.get('article_id', None):
-				raise BadException('data file %s the %d line lost article_id' % (data_file, lnum+1))
+				raise BadFileException('data file [%s] line[%d] lost article_id' % (data_file, lnum+1))
 			article_id = int(item['article_id'])
 			data_all_article_id_list.append(article_id)
 			if item.get('content', None):
 				data_good_article_id_list.append(article_id)
-			if meta_article_info_dict.get(article_id, None):
-				title = item.get('title', None)
-				url = item.get('url', None)
-				if url and not meta_article_info_dict[article_id]['url']:
-					meta_article_info_dict[article_id]['url'] = url
-				if title and not meta_article_info_dict[article_id]['title']:
-					meta_article_info_dict[article_id]['title'] = title
 
-	# meta-all-articles = data-all-articles + articles-not-in-data-but-in-meta + meta-lost-articles
-	meta_lost_article_id_set = set(meta_lost_article_id_list)
+	articlesinfo = []
+	article_id_set = set(article_id_list)
 	data_good_article_id_set = set(data_good_article_id_list)
 	data_all_article_id_set = set(data_all_article_id_list)
-	articlesinfo = {}
-	ok = True
-	for article_id in meta_all_article_id_list:
-		url = meta_article_info_dict[article_id]['url']
-		title = meta_article_info_dict[article_id]['title']
-		if article_id in data_good_article_id_set:
-			# article ok
-			pass
-		else:
-			ok = False
-			message = 0
-			if article_id in data_all_article_id_set:
-				# article has no content field
-				message = get_message_code('lost-content')
-			elif article_id in meta_lost_article_id_set:
-				# article lost in meta file's articles field
-				message = get_message_code('lost-articles-id')
-			else:
-				# article not in data file
-				message = get_message_code('lost-article')
-			articlesinfo[article_id] = {
-				'message': message,
-				'url': url,
-				'title': title
-			}
-	
-	return [ok, bookinfo, articlesinfo]
+
+	if data_all_article_id_set - article_id_set:
+		raise BadFileException('meta file lost some article id')
+
+	lost_article_id_set = article_id_set - data_good_article_id_set
+	progress = len(lost_article_id_set) / len(article_id_set)
+	for article_id in lost_article_id_set:
+		url = article_info_dict[article_id]['url']
+		en_title = article_info_dict[article_id]['en_title']
+		title = article_info_dict[article_id]['title']
+		articlesinfo.append({
+			'id': article_id,
+			'url': url,
+			'title': title,
+			'en_title': en_title,
+			'content_empty': article_id in data_all_article_id_set
+		})
+	return [articlesinfo, progress]
 
 def check(datadir):
 	'''
@@ -150,17 +135,22 @@ def check(datadir):
 			data file will be pun into datadir/wet
 		elif data file and meta file is ok
 			will be copied into datadir/hot
-		else
+		elif data file lost some articles data
 			will be copied into datadir/cold
+		else
+			data file is damaged, copied into datadir/trash
 		
 		datadir/hot/_books.jl descript ok books' information
-		datadir/cold/_report.jl descript not ok books' information
+		datadir/cold/_report.jl descript lost articles information
+		datadir/cold/_booklist.jl
+		datadir/trash/_booklist.jl
 	'''
 	if not os.path.exists(datadir):
 		raise Exception('data directory not exists')
 	hotdir = os.sep.join([datadir, 'hot'])
 	colddir = os.sep.join([datadir, 'cold'])
 	wetdir = os.sep.join([datadir, 'wet'])
+	trashdir = os.sep.join([datadir, 'trash'])
 
 	if os.path.exists(hotdir):
 		shutil.rmtree(hotdir)
@@ -168,9 +158,12 @@ def check(datadir):
 		shutil.rmtree(colddir)
 	if os.path.exists(wetdir):
 		shutil.rmtree(wetdir)
+	if os.path.exists(trashdir):
+		shutil.rmtree(trashdir)
 	os.mkdir(hotdir)
 	os.mkdir(colddir)
 	os.mkdir(wetdir)
+	os.mkdir(trashdir)
 
 	books_file = '_books.jl'
 	report_file = '_report.jl'
@@ -178,15 +171,14 @@ def check(datadir):
 	bfname = os.sep.join([hotdir, books_file])
 	rfname = os.sep.join([colddir, report_file])
 	lfname = os.sep.join([colddir, booklist_file])
+	tfname = os.sep.join([trashdir, booklist_file])
 
 	meta_file_suffix = '_meta.json'
 	data_file_suffix = '.jl'
 	total_count = 0
 	ok_count = 0
-	with open(bfname, 'w', encoding='utf8') as bf, open(rfname, 'w', encoding='utf8') as rf, open(lfname, 'w', encoding='utf8') as lf:
-		# rf.write(json.dumps({
-		# 	'messagecode': get_message_code()
-		# }, ensure_ascii=False, indent=4)+'\n')
+	max_progress = 0.7
+	with open(bfname, 'w', encoding='utf8') as bf, open(rfname, 'w', encoding='utf8') as rf, open(lfname, 'w', encoding='utf8') as lf, open(tfname, 'w', encoding='utf8') as tf:
 		for fname in os.listdir(datadir):
 			fnamefull = os.sep.join([datadir, fname])
 			if os.path.isfile(fnamefull):
@@ -194,41 +186,65 @@ def check(datadir):
 					continue
 				total_count += 1
 				data_file = fnamefull
-				meta_file = '.'.join(data_file.split('.')[:-1]) + '_meta.json'
+				meta_file = '.'.join(data_file.split('.')[:-1]) + meta_file_suffix
 				
-				if not os.path.exists(meta_file):
-					# lost meta file
+				# if meta file not exists, data file will be copied into wetdir
+				if (not os.path.exists(meta_file)):
 					shutil.copy(data_file, wetdir)
 					continue
+				bookinfo, article_id_list, article_info_dict = check_meta(meta_file)
 				try:
-					[ok, bookinfo, articles] = is_ok(data_file, meta_file)
+					[articlesinfo, progress] = check_data(data_file, article_id_list, article_info_dict)
 				except BadFileException as e:
+					# data file has errors, will be copied into trashdir
+					shutil.copy(data_file, trashdir)
+					shutil.copy(meta_file, trashdir)
+					tf.write(json.dumps({
+						'url': bookinfo['url'],
+						'name': bookinfo['ch_name'],
+						'category_url': '',
+						'category_name': '',
+						'message': str(e)
+					}, ensure_ascii=False))
+					tf.write('\n')
 					print(e)
-					# meta file has errors
-					shutil.copy(data_file, wetdir)
-					shutil.copy(meta_file, wetdir)
 					continue
+				except Exception as e:
+					raise e
 
-				if ok:
+				if not articlesinfo:
+					# data file is ok
 					ok_count += 1
 					shutil.copy(data_file, hotdir)
 					shutil.copy(meta_file, hotdir)
 					bf.write(json.dumps({
 						'ch_name': bookinfo['ch_name'],
 						'en_name': bookinfo['en_name'],
-						'type': bookinfo['type']
+						'type': bookinfo['type'],
+						'url': bookinfo['url']
 					}, ensure_ascii=False))
 					bf.write('\n')
 				else:
+					# data file lost some articles
 					shutil.copy(data_file, colddir)
 					shutil.copy(meta_file, colddir)
+					# if progress > max_progress:
+						# rf.write(json.dumps({
+						# 	'url': bookinfo['url'],
+						# 	'ch_name': bookinfo['ch_name'],
+						# 	'en_name': bookinfo['en_name'],
+						# 	'type': bookinfo['type'],
+						# 	'articles': articlesinfo
+						# }, ensure_ascii=False, indent=4))
 					rf.write(json.dumps({
 						'url': bookinfo['url'],
 						'ch_name': bookinfo['ch_name'],
 						'en_name': bookinfo['en_name'],
-						'articles': articles
+						'type': bookinfo['type'],
+						'articles': articlesinfo
 					}, ensure_ascii=False, indent=4))
 					rf.write('\n')
+					# else:
 					lf.write(json.dumps({
 						'url': bookinfo['url'],
 						'name': bookinfo['ch_name'],
