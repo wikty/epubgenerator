@@ -21,6 +21,7 @@ def generate_epub(rootdir):
 	book_target_directory = os.sep.join([rootdir, 'products', today, 'book'])
 	epub_target_directory = os.sep.join([rootdir, 'products', today, 'epub'])
 	report_filename = os.sep.join([rootdir, 'products', today, 'report.json'])
+	product_filename =  os.sep.join([rootdir, 'products', today, 'book', 'booklist.jl'])
 
 	source_items = [
 		epub_data_directory,
@@ -41,17 +42,28 @@ def generate_epub(rootdir):
 		if not os.path.exists(target_dir):
 			os.makedirs(target_dir)
 
-	return epub_maker_run(**{
+	run_config = {
 		'epub_data_directory': epub_data_directory,
 		'epub_check_path': epub_check_path,
 		'book_target_directory': book_target_directory,
 		'epub_target_directory': epub_target_directory,
 		'books_file_path': books_file_path,
 		'report_filename': report_filename,
+		'product_filename': product_filename,
 		'epub_data_json_filename': '[en_name].jl', # [en_name] is placeholder for book en_name
 		'epub_data_meta_filename': '[en_name]_meta.json', # [en_name] is placeholder for book en_name
-		'chapteralone': False
-	})
+		'chapteralone': False,
+		'with_indent': True
+	}
+
+	print('')
+	print('\n'.join(['{0:<30} = {1}'.format(k, v) for k,v in run_config.items()]))
+	print('')
+	r = input('Would like run with above configurations?(y/n)')
+	if r and 'yes'.startswith(r):
+		return epub_maker_run(**run_config)
+	else:
+		return '\nOk, may be you should change your configuation first, Bye!'
 
 if __name__ == '__main__':
 	parser = OptionParser()

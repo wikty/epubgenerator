@@ -11,7 +11,13 @@ class Books(object):
 				if not line.strip():
 					continue
 				item = json.loads(line)
-				self.books.append([item['en_name'], item['ch_name'], item['type']])
+				self.books.append([
+					item['en_name'], 
+					item['ch_name'], 
+					item['type'],
+					item.get('images', []),
+					item.get('filename', '')
+				])
 
 	def get_books(self):
 		'''
@@ -51,7 +57,7 @@ class Chapter(object):
 		return chapters
 
 class Article(object):
-	def __init__(self, article):
+	def __init__(self, article, with_indent=True):
 		if 'article_id' not in article:
 			print(article)
 			raise Exception('article raw lost article id')
@@ -65,6 +71,7 @@ class Article(object):
 		self.comment = article.get('comment', [])
 		self._content = ''
 		self._comment = ''
+		self.with_indent = with_indent
 
 	def get_id(self):
 		return self.id
@@ -80,7 +87,10 @@ class Article(object):
 
 	def get_content_body(self):
 		if not self._content:
-			self._content = '\n'.join(['<p>' + l + '</p>'  for l in self.content])
+			if self.with_indent:
+				self._content = '\n'.join(['<p>' + l + '</p>'  for l in self.content])
+			else:
+				self._content = '\n'.join(['<p class="noindent">' + l + '</p>'  for l in self.content])
 		return self._content
 
 	def get_content_head(self):
@@ -128,7 +138,7 @@ class Article(object):
 		])
 
 	@staticmethod
-	def create_articles_from_jsonfile(jsonfile, article_dict=None):
+	def create_articles_from_jsonfile(jsonfile, article_dict=None, with_indent=True):
 		if not os.path.exists(jsonfile):
 			raise Exception('json data file not exists')
 		articles = {}
@@ -136,7 +146,7 @@ class Article(object):
 			for line in f:
 				if not line.strip():
 					continue
-				article = Article(json.loads(line))
+				article = Article(json.loads(line), with_indent)
 				articles[article.get_id()] = article
 		if article_dict:
 			# check jsonfile data
@@ -327,7 +337,7 @@ class BookMeta(object):
 				articles[article_id] = {
 					'chapter_id': 1,
 					'url': item.get('url', ''),
-					'en_name': item['en_title'],
+					'en_name': item.get('en_title', ''),
 					'ch_name': item['title']
 				}
 		chapters[0]['articles'] = sorted(chapters[0]['articles'])		

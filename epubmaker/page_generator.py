@@ -30,8 +30,8 @@ class PageGenerator():
         modify_month,
         modify_day,
         article_id_prefix,
-        chapter_id_prefix
-        ):
+        chapter_id_prefix,
+        images):
         xhtmldir = xhtmldir.rstrip('/').rstrip('\\')
         epubdir = epubdir.rstrip('/').rstrip('\\')
 
@@ -61,6 +61,7 @@ class PageGenerator():
         self.modify_day = modify_day
         self.article_id_prefix = article_id_prefix
         self.chapter_id_prefix = chapter_id_prefix
+        self.images = images
         self.ncx_relative_dir =''
         self.xhtml_relative_dir = 'xhtml'
         self.img_relative_dir = 'img'
@@ -115,7 +116,18 @@ class PageGenerator():
         return self.get_opf_item(self.css_relative_dir, filename, id, 'text/css')
 
     def get_opf_item_img(self, filename, id):
-        return self.get_opf_item(self.img_relative_dir, filename, id, 'image/jpeg')
+        ext = os.path.splitext(filename)[1]
+        if '.png'.endswith(ext):
+            mimetype = 'image/png'
+        elif '.gif'.endswith(ext):
+            mimetype = 'image/gif'
+        elif '.svg'.endswith(ext):
+            mimetype = 'image/svg+xml'
+        elif '.bmp'.endswith(ext):
+            mimetype = 'image/bmp'
+        else:
+            mimetype = 'image/jpeg'
+        return self.get_opf_item(self.img_relative_dir, filename, id, mimetype)
 
     def get_opf_item_js(self, filename, id):
         return self.get_opf_item(self.js_relative_dir, filename, id, 'text/javascript')
@@ -256,6 +268,8 @@ class PageGenerator():
             
             items.append(self.get_opf_item_ncx(filename=self.ncxfile, id='ncx'))
             items.append(self.get_opf_item_img(filename=self.coverimg, id='cover.jpg'))
+            for image in self.images:
+                items.append(self.get_opf_item_img(filename=image, id='image_'+image))
             items.append(self.get_opf_item_css(filename=self.maincssfile, id='main.css'))
             items.append(self.get_opf_item_nav(filename=self.navfile, id='nav'))
             items.append(self.get_opf_item_xhtml(filename=self.coverfile, id=coverpage_id))

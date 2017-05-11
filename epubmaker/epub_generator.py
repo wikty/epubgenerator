@@ -30,6 +30,9 @@ class EpubGenerator:
         # whether has chapter page for introduce itself
         self.chapteralone = config.is_chapteralone()
 
+        # article's paragraph with a text-indent
+        self.with_indent = config.is_with_indent()
+
         # chapter and article id prefix in the contents
         self.article_id_prefix = config.get_prefix_of_article_id_in_contents()
         self.chapter_id_prefix = config.get_prefix_of_chapter_id_in_contents()
@@ -41,9 +44,11 @@ class EpubGenerator:
         self.target_epub_dirs = config.get_target_epub_dirs()
         self.target_epub_files = config.get_target_epub_files()
         self.source_epub_files = config.get_source_epub_files()
+        self.source_images = config.get_source_images()
         self.target_rootdir = self.target_epub_dirs['root']
         self.target_xhtmldir = self.target_epub_dirs['xhtml']
         self.target_epubdir = self.target_epub_dirs['epub']
+        self.target_imgdir = self.target_epub_dirs['img']
         self.target_coverfile = config.get_target_epub_files('cover', False)
         self.target_frontfile = config.get_target_epub_files('front', False)
         self.target_contentsfile = config.get_target_epub_files('contents', False)
@@ -76,7 +81,7 @@ class EpubGenerator:
                     self.booktype)
             self.standalone = book_meta.get_standalone()
             self.contents = Contents(
-                Article.create_articles_from_jsonfile(self.jsonfile, book_meta.get_article_meta()), 
+                Article.create_articles_from_jsonfile(self.jsonfile, book_meta.get_article_meta(), self.with_indent), 
                 Chapter.create_chapters_from_meta(book_meta.get_chapter_meta()), 
                 self.standalone, 
                 self.chapteralone, 
@@ -95,6 +100,9 @@ class EpubGenerator:
                     raise
         for k, filename in self.source_epub_files.items():
             shutil.copy(filename, self.target_epub_files[k])
+        # copy source images
+        for image in self.source_images:
+            shutil.copy(image, self.target_imgdir)
 
     def finish(self):
         if not self.ok:
@@ -129,7 +137,8 @@ class EpubGenerator:
                 'publish_year': self.book_entry.get_book_publish_year(),
                 'modify_year': self.book_entry.get_book_modify_year(),
                 'modify_month': self.book_entry.get_book_modify_month(),
-                'modify_day': self.book_entry.get_book_modify_day()
+                'modify_day': self.book_entry.get_book_modify_day(),
+                'images': [os.path.basename(image) for image in self.source_images]
             })
             self.generate_pages()
             self.generate_cover()

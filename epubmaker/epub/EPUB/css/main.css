@@ -58,6 +58,12 @@ p {
     text-indent: 2em;
     line-height:130%;
 }
+p.noindent {
+    text-align: justify;
+    text-indent: 0;
+    line-height:130%;
+}
+
 p.footnote{
     text-align: left;
     text-indent: 0;

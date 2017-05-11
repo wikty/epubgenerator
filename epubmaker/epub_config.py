@@ -22,7 +22,9 @@ class EpubConfig(object):
 		targetdir,  
 		jsonfile, 
 		metafile='', 
-		chapteralone=False):
+		chapteralone=False,
+		images=[],
+		with_indent=True):
 		currentdir = os.path.dirname(os.path.abspath(__file__))
 		sourcedir = os.sep.join([currentdir, 'epub']) # epub source in current directory ./epub
 		templatedir = os.sep.join([currentdir, 'templates']) # template directory is ./templates
@@ -36,6 +38,8 @@ class EpubConfig(object):
 		self.jsonfile = jsonfile # data for building ebook
 		self.metafile = metafile # meta data about the building data
 		self.chapteralone = chapteralone # whether chapter has a single page for itself
+		self.images = images
+		self.with_indent = with_indent
 		# book basic information
 		self.bookname = bookname
 		self.bookcname = bookcname
@@ -99,6 +103,9 @@ class EpubConfig(object):
 	def get_metafile(self):
 		return self.metafile
 
+	def get_source_images(self):
+		return self.images
+
 	def get_target_epub_dirs(self, name=None):
 		if name is None:
 			return self.target_epub_dirs
@@ -125,3 +132,6 @@ class EpubConfig(object):
 
 	def get_epub_templatedir(self):
 		return self.templatedir
+
+	def is_with_indent(self):
+		return self.with_indent

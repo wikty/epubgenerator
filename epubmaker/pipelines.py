@@ -54,7 +54,7 @@ debug = True
 
 config = [
 	{
-		'name': 'epubdir_check_task',
+		'name': 'product_check_task',
 		'level': '0100',
 		'input_args': [
 			'en_name',
@@ -197,16 +197,29 @@ def run(**kwargs):
 
 	return [ok, message]
 
-def epubdir_check_task(**kwargs):
+def product_check_task(**kwargs):
+	ch_name = kwargs['ch_name']
 	en_name = kwargs['en_name']
 	epubdir = kwargs['epubdir']
+	book_target_directory = kwargs['book_target_directory']
 	ok = True
 	message = 'ok'
-	info(en_name, 'check epubdir', 'checking...')
-	if os.path.exists(epubdir):
+	info(en_name, 'check product', 'checking...')
+	product_epubname = os.sep.join([book_target_directory, '%s.epub' % ch_name])
+	product_wordname = os.sep.join([book_target_directory, '%s.docx' % ch_name])
+	if os.path.exists(product_epubname) and os.path.exists(product_wordname):
 		ok = False
-		message = 'epub directory %s exists' % en_name
-	info(en_name, 'check epubdir', message)
+		message = 'product epub&word exists'	
+	# if not (os.path.exists(product_epubname) and os.path.exists(product_wordname)):
+	# 	if os.path.exists(epubdir):
+	# 		shutil.rmtree(epubdir)
+	# else:
+	# 	ok = False
+	# 	message = 'product epub&word exists'
+	# if os.path.exists(epubdir):
+	# 	ok = False
+	# 	message = 'epub directory %s exists' % en_name
+	info(en_name, 'check product', message)
 	return {
 		'ok': ok,
 		'message': message
@@ -243,6 +256,8 @@ def epub_config_task(**kwargs):
 		'jsonfile': kwargs['jsonfile'],
 		'metafile': kwargs['metafile'],
 		'chapteralone': kwargs['chapteralone'],
+		'images': kwargs['images'],
+		'with_indent': kwargs['with_indent']
 	}
 	ok = True
 	message = 'ok'
@@ -363,10 +378,15 @@ def epub_validate_task(**kwargs):
 			shell=True)
 	except subprocess.CalledProcessError as e:
 		validation = e.output
-	message = validation.decode('utf-8')
-	if message.find('No errors') < 0:
+	try:
+		message = validation.decode('utf-8')
+	except Exception as e:
 		ok = False
-		message = message
+		message = str(e)
+	else:
+		if message.find('No errors') < 0:
+			ok = False
+			message = message
 	info(en_name, 'validate epub', message)
 	return {
 		'ok': ok,
@@ -429,6 +449,10 @@ def product_generate_task(**kwargs):
 		shutil.move(epubname, product_epubname)
 		shutil.move(wordname, product_wordname)
 	except Exception as e:
+		if os.path.exists(product_epubname):
+			os.remove(product_epubname)
+		if os.path.exists(product_wordname):
+			os.remove(product_wordname)
 		if debug:
 			raise e
 		ok = False
