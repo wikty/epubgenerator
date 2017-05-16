@@ -53,7 +53,7 @@ def generate_epub(rootdir):
 		'epub_data_json_filename': '[en_name].jl', # [en_name] is placeholder for book en_name
 		'epub_data_meta_filename': '[en_name]_meta.json', # [en_name] is placeholder for book en_name
 		'chapteralone': False,
-		'with_indent': True
+		'with_indent': False
 	}
 
 	print('')

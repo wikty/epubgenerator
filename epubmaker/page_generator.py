@@ -136,9 +136,9 @@ class PageGenerator():
         linear = 'yes' if linear not in ['yes', 'no'] else linear
         return '      <itemref idref="{id}" linear="{linear}"/>'.format(id=id, linear=linear)
 
-    def get_opf_reference(self, filename, type, dirname=''):
+    def get_opf_reference(self, filename, type, title, dirname=''):
         dirname = self.xhtml_relative_dir if not dirname else dirname
-        return '      <reference href="{dirname}/{filename}" type="{type}" />'.format(dirname=dirname, filename=filename, type=type)
+        return '      <reference href="{dirname}/{filename}" type="{type}" title="{title}" />'.format(dirname=dirname, filename=filename, type=type, title=title)
 
     def get_ncx_navpoint(self, id, title, filename):
         playorder = id
@@ -291,7 +291,9 @@ class PageGenerator():
                     items.append(self.get_opf_item_xhtml(filename=item_achor, id=item_achor))
                     itemrefs.append(self.get_opf_itemref(id=item_achor))
 
-            references = [self.get_opf_reference(self.coverfile, 'cover')]
+            references = []
+            references.append(self.get_opf_reference(self.coverfile, 'cover', 'Cover'))
+            references.append(self.get_opf_reference(self.contentsfile, 'toc', 'Table of Contents'))
             fields = {
                 'bookid': self.bookid,
                 'title': self.bookcname,
@@ -309,6 +311,17 @@ class PageGenerator():
         with open(filename, 'w', encoding='utf-8') as f:
             navpoints = []
             count = 1
+            # add cover, front, contents
+            np = self.get_ncx_navpoint(count, self.covertitle, self.coverfile)
+            navpoints.append(np)
+            count += 1
+            np = self.get_ncx_navpoint(count, self.fronttitle, self.frontfile)
+            navpoints.append(np)
+            count += 1
+            np = self.get_ncx_navpoint(count, self.contentstitle, self.contentsfile)
+            navpoints.append(np)
+            count += 1
+            # add pages
             for item in contents:
                 item_id = item.get_id()
                 item_title = item.get_title()
