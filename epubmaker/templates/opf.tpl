@@ -11,6 +11,7 @@
       <meta property="rendition:orientation">auto</meta>
       <meta property="rendition:spread">auto</meta>
       <meta content="0.7.4" name="Sigil version" />
+      <meta content="{coverimg}" name="cover" />
    </metadata>
    <manifest>
 {items}

@@ -10,7 +10,7 @@
   <h2>{title}</h2>
   <ol epub:type="list">
     <li><a href="{coverfile}">{covertitle}</a></li>
-    <li><a href="{frontfile}">{fronttitle}</a></li>
+    <li><a href="{frontfile}#{frontanchor}">{fronttitle}</a></li>
     <li><a href="{contentsfile}">{contentstitle}</a></li>
 {content}
   </ol>

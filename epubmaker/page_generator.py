@@ -41,6 +41,10 @@ class PageGenerator():
         self.fronttitle = fronttitle
         self.contentstitle = contentstitle
         self.navtitle = navtitle
+        self.coveranchor = ''
+        self.frontanchor = 'copyright'
+        self.contentsanchor = ''
+        self.navanchor = ''
         self.coverfile = coverfile
         self.frontfile = frontfile
         self.contentsfile = contentsfile
@@ -140,15 +144,26 @@ class PageGenerator():
         dirname = self.xhtml_relative_dir if not dirname else dirname
         return '      <reference href="{dirname}/{filename}" type="{type}" title="{title}" />'.format(dirname=dirname, filename=filename, type=type, title=title)
 
-    def get_ncx_navpoint(self, id, title, filename):
+    def get_ncx_navpoint(self, id, title, filename, anchor=''):
         playorder = id
-        return """
+        if not anchor:
+            return """
     <navPoint id="navPoint-{id}" playOrder="{playorder}">
       <navLabel>
         <text>{title}</text>
       </navLabel>
       <content src="{dirname}/{filename}" />
     </navPoint>""".format(id=id, title=title, playorder=playorder, filename=filename, dirname=self.xhtml_relative_dir)
+        else:
+            return """
+    <navPoint id="navPoint-{id}" playOrder="{playorder}">
+      <navLabel>
+        <text>{title}</text>
+      </navLabel>
+      <content src="{dirname}/{filename}#{anchor}" />
+    </navPoint>""".format(id=id, title=title, playorder=playorder, filename=filename, dirname=self.xhtml_relative_dir, anchor=anchor)
+    
+
 
     def generate_article(self, article, tpl):
         filename = os.sep.join([self.xhtmldir, article['filename']])
@@ -209,7 +224,8 @@ class PageGenerator():
                 'publish_year': self.publish_year,
                 'modify_year': self.modify_year,
                 'modify_month': self.modify_month,
-                'modify_day': self.modify_day
+                'modify_day': self.modify_day,
+                'frontanchor': self.frontanchor
             }))
 
     def generate_nav(self, contents, tpl):
@@ -231,7 +247,8 @@ class PageGenerator():
                 'fronttitle': self.fronttitle,
                 'coverfile': self.coverfile,
                 'frontfile': self.frontfile,
-                'contentsfile': self.contentsfile
+                'contentsfile': self.contentsfile,
+                'frontanchor': self.frontanchor
             }))
 
     def generate_contents(self, contents, tpl):
@@ -302,7 +319,8 @@ class PageGenerator():
                 'datetime': self.now(),
                 'items': '\n'.join(items),
                 'itemrefs': '\n'.join(itemrefs),
-                'references': '\n'.join(references)
+                'references': '\n'.join(references),
+                'coverimg': self.coverimg
             }
             f.write(tpl.format(fields))
 
@@ -315,7 +333,7 @@ class PageGenerator():
             np = self.get_ncx_navpoint(count, self.covertitle, self.coverfile)
             navpoints.append(np)
             count += 1
-            np = self.get_ncx_navpoint(count, self.fronttitle, self.frontfile)
+            np = self.get_ncx_navpoint(count, self.fronttitle, self.frontfile, self.frontanchor)
             navpoints.append(np)
             count += 1
             np = self.get_ncx_navpoint(count, self.contentstitle, self.contentsfile)

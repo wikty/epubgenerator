@@ -10,7 +10,7 @@
 
 <body>
   <div class="copyright">
-    <h2><strong>{title}</strong></h2>
+    <h2 id="{frontanchor}">{title}</h2>
 
     <p><strong>{book_name}</strong><br />
      {author}<br />
