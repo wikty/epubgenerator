@@ -1,33 +1,6 @@
 # -*- coding:utf-8 -*-
 import os, json
 
-class Books(object):
-	def __init__(self, books_filename):
-		if not os.path.exists(books_filename):
-			raise Exception('books filename %s not exists' % books_filename)
-		self.books = []
-		with open(books_filename, 'r', encoding='utf-8') as f:
-			for line in f:
-				if not line.strip():
-					continue
-				item = json.loads(line)
-				self.books.append([
-					item['en_name'], 
-					item['ch_name'], 
-					item['type'],
-					item.get('images', []),
-					item.get('filename', '')
-				])
-
-	def get_books(self):
-		'''
-		[[en_name, ch_name, type],...]
-		'''
-		return self.books
-
-	def get_book_count(self):
-		return len(self.books)
-
 class Chapter(object):
 	def __init__(self, chapter):
 		if 'id' not in chapter or not chapter['id']:

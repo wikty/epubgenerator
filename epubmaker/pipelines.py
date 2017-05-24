@@ -200,16 +200,14 @@ def run(**kwargs):
 def product_check_task(**kwargs):
 	ch_name = kwargs['ch_name']
 	en_name = kwargs['en_name']
-	epubdir = kwargs['epubdir']
-	book_target_directory = kwargs['book_target_directory']
+	product_book_dir = kwargs['product_book_dir']
 	ok = True
 	message = 'ok'
-	info(en_name, 'check product', 'checking...')
-	product_epubname = os.sep.join([book_target_directory, '%s.epub' % ch_name])
-	product_wordname = os.sep.join([book_target_directory, '%s.docx' % ch_name])
+	product_epubname = os.sep.join([product_book_dir, '%s.epub' % ch_name])
+	product_wordname = os.sep.join([product_book_dir, '%s.docx' % ch_name])
 	if os.path.exists(product_epubname) and os.path.exists(product_wordname):
 		ok = False
-		message = 'product epub&word exists'	
+		message = 'product epub and word exists'	
 	# if not (os.path.exists(product_epubname) and os.path.exists(product_wordname)):
 	# 	if os.path.exists(epubdir):
 	# 		shutil.rmtree(epubdir)
@@ -231,7 +229,6 @@ def datafile_check_task(**kwargs):
 	metafile = kwargs['metafile']
 	ok = True
 	message = 'ok'
-	info(en_name, 'check data file', 'checking...')
 	if not os.path.exists(jsonfile):
 		ok = False
 		message = '%s lost!!!' % en_name
@@ -261,7 +258,6 @@ def epub_config_task(**kwargs):
 	}
 	ok = True
 	message = 'ok'
-	info(en_name, 'epub config', 'configing...')
 	e = None
 	try:
 		epubconfig = EpubConfig(**d)
@@ -283,7 +279,6 @@ def data_load_task(**kwargs):
 	epubconfig = kwargs['epubconfig']
 	ok = True
 	message = 'ok'
-	info(en_name, 'load data', 'loading...')
 	try:
 		epubgenerator = EpubGenerator(epubconfig)
 		epubgenerator.load_data()
@@ -304,7 +299,6 @@ def epub_init_task(**kwargs):
 	epubgenerator = kwargs['epubgenerator']
 	ok = True
 	message = 'ok'
-	info(en_name, 'init epub', 'initing...')
 	try:
 		epubgenerator.init()
 	except Exception as e:
@@ -323,7 +317,6 @@ def epub_generate_task(**kwargs):
 	epubgenerator = kwargs['epubgenerator']
 	ok = True
 	message = 'ok'
-	info(en_name, 'generate epub', 'generating...')
 	try:
 		epubgenerator.run()
 	except Exception as e:
@@ -340,6 +333,7 @@ def epub_generate_task(**kwargs):
 def epub_archive_task(**kwargs):
 	en_name = kwargs['en_name']
 	epubdir = kwargs['epubdir']
+	zip_path = kwargs['zip_path']
 	ok = True
 	message = 'ok'
 	try:
@@ -347,11 +341,22 @@ def epub_archive_task(**kwargs):
 		# mimetype must be plain text(no compressed), 
 		# must be first file in archive, so other inable-unzip 
 		# application can read epub's first 30 bytes
-		os.chdir(epubdir) # current directory is in targetdir
+		os.chdir(epubdir) # change working directory
 		epubname = '%s.epub' % en_name
-		os.system("zip -0Xq %s mimetype" % epubname)
-		os.system("zip -Xr9Dq %s *" % epubname)
-	except Exception as e:
+		output = subprocess.check_output(
+			[zip_path, '-0Xq', epubname, 'mimetype'],
+			stderr=subprocess.STDOUT,
+			shell=True
+		)
+		output = subprocess.check_output(
+			[zip_path, '-Xr9Dq', epubname, '*'],
+			stderr=subprocess.STDOUT,
+			shell=True
+		)
+		# os.system("zip -0Xq %s mimetype" % epubname)
+		# os.system("zip -Xr9Dq %s *" % epubname)
+	except subprocess.CalledProcessError as e:
+		# output = e.output.decode('utf8')
 		if debug:
 			raise e
 		ok = False
@@ -365,21 +370,20 @@ def epub_archive_task(**kwargs):
 
 def epub_validate_task(**kwargs):
 	en_name = kwargs['en_name']
-	epub_check_path = kwargs['epub_check_path']
+	epubcheck_path = kwargs['epubcheck_path']
 	epubname = kwargs['epubname']
 	ok = True
 	message = 'ok'
-	info(en_name, 'validate epub', 'validating...')
 	try:
-		commond = "java -jar %s %s" % (epub_check_path, epubname)
-		validation = subprocess.check_output(
-			commond, 
+		# commond = "java -jar %s %s" % (epub_check_path, epubname)
+		output = subprocess.check_output(
+			['java', '-jar', epubcheck_path, epubname], 
 			stderr=subprocess.STDOUT, 
 			shell=True)
 	except subprocess.CalledProcessError as e:
-		validation = e.output
+		output = e.output
 	try:
-		message = validation.decode('utf-8')
+		message = output.decode('utf8')
 	except Exception as e:
 		ok = False
 		message = str(e)
@@ -398,7 +402,6 @@ def epub_finish_task(**kwargs):
 	epubgenerator = kwargs['epubgenerator']
 	ok = True
 	message = 'ok'
-	info(en_name, 'epub finish', '')
 	try:
 		epubgenerator.finish()
 	except Exception as e:
@@ -415,14 +418,17 @@ def epub_finish_task(**kwargs):
 def word_generate_task(**kwargs):
 	en_name = kwargs['en_name']
 	epubname = kwargs['epubname']
+	pandoc_path = kwargs['pandoc_path']
 	ok = True
 	message = 'ok'
-	info(en_name, 'generate word', 'generating...')
 	try:
 		wordname = '%s.docx' % en_name
-		commond = 'pandoc %s -o %s' % (epubname, wordname)
-		os.system(commond)
-	except Exception as e:
+		subprocess.check_output(
+			[pandoc_path, epubname, '-o', wordname],
+			stderr=subprocess.STDOUT,
+			shell=True
+		)
+	except subprocess.CalledProcessError as e:
 		if debug:
 			raise e
 		ok = False
@@ -437,15 +443,14 @@ def word_generate_task(**kwargs):
 def product_generate_task(**kwargs):
 	en_name = kwargs['en_name']
 	ch_name = kwargs['ch_name']
-	book_target_directory = kwargs['book_target_directory']
+	product_book_dir = kwargs['product_book_dir']
 	epubname = kwargs['epubname']
 	wordname = kwargs['wordname']
 	ok = True
 	message = 'ok'
-	info(en_name, 'generate product', 'generating...')
 	try:
-		product_epubname = os.sep.join([book_target_directory, '%s.epub' % ch_name])
-		product_wordname = os.sep.join([book_target_directory, '%s.docx' % ch_name])
+		product_epubname = os.sep.join([product_book_dir, '%s.epub' % ch_name])
+		product_wordname = os.sep.join([product_book_dir, '%s.docx' % ch_name])
 		shutil.move(epubname, product_epubname)
 		shutil.move(wordname, product_wordname)
 	except Exception as e:
