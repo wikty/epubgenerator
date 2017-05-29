@@ -1,2 +1,3 @@
 from .epub_generator_service import run as epub_generator_service_run
 from .data_cleaner_service import run as data_cleaner_service_run
+from .product_processor_service import run as product_processor_service_run

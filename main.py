@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-import os, time
+import os, time, csv
 from optparse import OptionParser
 # from epubrepair import generate_data, check_data, merge_data
 # from epubmaker import run as epub_maker_run
@@ -8,6 +8,7 @@ from optparse import OptionParser
 
 from service import epub_generator_service_run
 from service import data_cleaner_service_run
+from service import product_processor_service_run
 
 def run_epub_generator(project_name, current_dir):
 	data_dir = os.sep.join([current_dir, 'data'])
@@ -24,7 +25,7 @@ def run_epub_generator(project_name, current_dir):
 		zip_path, 
 		pandoc_path)
 
-def run_data_cleaner(project_name, site_name, current_dir):
+def run_data_cleaner(project_name, current_dir, site_name):
 	today = time.strftime('%Y_%m_%d')
 	data_dir = os.sep.join([current_dir, 'data',  today, project_name])
 	data_books_file = os.sep.join([data_dir, 'books.jl'])
@@ -38,6 +39,28 @@ def run_data_cleaner(project_name, site_name, current_dir):
 		site_name,
 		'ePub3'
 	)
+
+def run_product_processor(project_name, current_dir, date_name):
+	data_dir = os.sep.join([current_dir, 'data', date_name, project_name])
+	books_file = os.sep.join([data_dir, 'books.jl'])
+	product_dir = os.sep.join([current_dir, 'products', date_name, project_name])
+	book_dir = os.sep.join([product_dir, 'book'])
+	epub_dir = os.sep.join([product_dir, 'epub'])
+	
+	tmp_dir = os.sep.join([current_dir, 'tmp'])
+	if not os.path.exists(tmp_dir):
+		os.makedirs(tmp_dir)
+	
+	failure_books = []
+	with open(os.sep.join([product_dir, 'failure.csv']), 'r', newline='') as f:
+		reader = csv.DictReader(f, ['Name', 'Filename', 'Message'], quoting=csv.QUOTE_MINIMAL)
+		for item in reader:
+			failure_books.append({
+				'bookname': item['Name'],
+				'filename': item['Filename']
+			})
+
+	return product_processor_service_run(project_name, data_dir, book_dir, epub_dir, books_file, failure_books, tmp_dir)
 
 # def generate_epub(rootdir):
 # 	'''
@@ -109,13 +132,21 @@ if __name__ == '__main__':
 		project_name = project_name.strip()
 		result = run_epub_generator(project_name, os.path.abspath(os.getcwd()))
 		print(result)
-	if options.action == 'run-data-cleaner':
+	elif options.action == 'run-data-cleaner':
 		project_name = input('Please Enter Project Name:')
 		project_name = project_name.strip()
 		site_name = input('Please Enter Site Name:')
 		site_name = site_name.strip()
-		result = run_data_cleaner(project_name, site_name, os.path.abspath(os.getcwd()))
+		result = run_data_cleaner(project_name, os.path.abspath(os.getcwd()), site_name)
 		print(result)
+	elif options.action == 'run-product-processor':
+		project_name = input('Please Enter Project Name:')
+		project_name = project_name.strip()
+		date_name = input('Please Enter Date Name(2017_05_28):')
+		date_name = date_name.strip()
+		result = run_product_processor(project_name, os.path.abspath(os.getcwd()), date_name)
+	else:
+		print('invalid action')
 
 	# if options.action == 'generate-from-txt':
 	# 	print(generate_data('tmp', 'tmp', '生僻字目录', 'zh'))

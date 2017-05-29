@@ -383,7 +383,7 @@ def epub_validate_task(**kwargs):
 	except subprocess.CalledProcessError as e:
 		output = e.output
 	try:
-		message = output.decode('utf8')
+		message = output.decode('gbk')
 	except Exception as e:
 		ok = False
 		message = str(e)

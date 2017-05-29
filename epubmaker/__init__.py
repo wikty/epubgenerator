@@ -44,11 +44,15 @@ def run(
 	failure_report_columns = ['Name', 'Filename', 'Message']
 	if not os.path.exists(product_success_report_file):
 		with open(product_success_report_file, 'w', newline='') as f:
-			writer = csv.DictWriter(f, report_columns)
+			writer = csv.DictWriter(f, success_report_columns, quoting=csv.QUOTE_MINIMAL)
 			writer.writeheader()
-	with open(product_success_report_file, 'a+', newline='') as sf, open(product_failure_report_file, 'w', newline='') as ff:
-		sf_writer = csv.DictWriter(sf, success_report_columns)
-		ff_writer = csv.DictWriter(ff, failure_report_columns)
+	if not os.path.exists(product_failure_report_file):
+		with open(product_failure_report_file, 'w', newline='') as f:
+			writer = csv.DictWriter(f, failure_report_columns, quoting=csv.QUOTE_MINIMAL)
+			writer.writeheader()
+	with open(product_success_report_file, 'a+', newline='') as sf, open(product_failure_report_file, 'a+', newline='') as ff:
+		sf_writer = csv.DictWriter(sf, success_report_columns, quoting=csv.QUOTE_MINIMAL)
+		ff_writer = csv.DictWriter(ff, failure_report_columns, quoting=csv.QUOTE_MINIMAL)
 		# load books file
 		for bk in data_books.get_books():
 			total_count += 1

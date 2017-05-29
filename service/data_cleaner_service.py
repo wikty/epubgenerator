@@ -1,4 +1,4 @@
-import os, json
+import os, json, shutil
 
 from models import Books
 
@@ -30,20 +30,24 @@ def run(source_dir, target_dir, books_file, sitename, bookformat):
 	for bk in Books.create_from_file(books_file).get_books():
 		en_name = bk.get_en_name()
 		if en_name in bookinfo:
-			raise Exception('book ch_name duplicate: %s' % en_name)
+			raise Exception('book en_name duplicate: %s' % en_name)
 		if not bk.get_filename():
 			bk.set_filename(en_name+'.jl')
 		bk.set_sitename(sitename)
 		bk.set_format(bookformat)
 		bookinfo[en_name] = bk
 
-	total_count = 0
+	data_count = 0
+	other_count = 0
 	whitelist = set(['books.jl'])
 	for fname in os.listdir(source_dir):
+		source_file = os.sep.join([source_dir, fname])
+		if os.path.isdir(source_file):
+			continue
 		if fname in whitelist:
 			continue
 		if fname.endswith('.jl'):
-			source_file = os.sep.join([source_dir, fname])
+			# source_file = os.sep.join([source_dir, fname])
 			target_file = os.sep.join([target_dir, fname])
 			article_count = 0
 			word_count = 0
@@ -75,7 +79,10 @@ def run(source_dir, target_dir, books_file, sitename, bookformat):
 			bk.set_articlecount(article_count)
 			bk.set_wordcount(word_count)
 			books.add_book(bk)
-		total_count += 1
-
+			data_count += 1
+		else:
+			shutil.copy(source_file, target_dir)
+			other_count += 1
+	
 	books.dump_to_file(os.sep.join([target_dir, 'books.jl']))
-	return total_count
+	return [data_count, other_count]

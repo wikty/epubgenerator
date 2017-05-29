@@ -11,6 +11,10 @@ class BooksItem(object):
 			raise Exception('books item must has ch_name')
 		if not (self.fields['en_name'] or self.fields['filename']):
 			raise Exception('books item must has either en_name or filename')
+		if not self.fields['en_name']:
+			self.fields['en_name'] = os.path.splitext(self.fields['filename'])[0]
+		if not self.fields['filename']:
+			self.fields['filename'] = self.fields['en_name'] + '.jl'
 
 	@classmethod
 	def get_default_fields(cls):
@@ -132,7 +136,10 @@ class BooksItem(object):
 class Books(object):
 
 	def __init__(self, books=[]):
-		self.books = books
+		self.books = []
+		self.indexer = {}
+		for book in books:
+			self.add_book(book)
 
 	@classmethod
 	def create_from_file(self, filename):
@@ -147,13 +154,20 @@ class Books(object):
 				books.append(BooksItem.create_from_json(line))
 		return Books(books)
 
-	def add_book(self, book):
+	def add_book(self, book, update=False):
 		if not isinstance(book, BooksItem):
 			raise Exception('book must be a BooksItem object')
-		self.books.append(book)
+		if update and book.get_filename() in self.indexer:
+			self.indexer[book.get_filename()] = book
+		else:
+			self.books.append(book)
+			self.indexer[book.get_filename()] = book
 	
 	def get_books(self):
 		return self.books
+
+	def get_book(self, filename):
+		return self.indexer.get(filename, None)
 
 	def count(self):
 		return len(self.books)
